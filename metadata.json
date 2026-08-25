@@ -1,0 +1,6 @@
+{
+  "name": "Local Browser AI",
+  "description": "An offline, fully-functional AI chat using WebGPU right in the browser.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

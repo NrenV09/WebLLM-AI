@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-gemini-bg: #0b0d11;
+  --color-gemini-sidebar: #0e1015;
+  --color-gemini-surface: #14171f;
+  --color-gemini-card: #181b24;
+  --color-gemini-card-hover: #1f232e;
+  --color-gemini-border: rgba(255, 255, 255, 0.07);
+  --color-gemini-border-hover: rgba(255, 255, 255, 0.15);
+  --color-gemini-blue: #a8c7fa;
+  --color-gemini-blue-bright: #7cacf8;
+  --color-gemini-purple: #c58af9;
+  --color-gemini-pink: #f28b82;
+  --color-text-primary: #e6e8ec;
+  --color-text-secondary: #9aa0a6;
+  --color-text-dim: #5f6368;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+html, body {
+  background-color: #0b0d11;
+  color: #e6e8ec;
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(66, 133, 244, 0.07), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(197, 138, 249, 0.04), transparent 60%);
+  background-attachment: fixed;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Custom ultra-thin minimalist scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Markdown typography matching Gemini Assistant output */
+.markdown-body {
+  @apply text-[#e6e8ec] text-[15px] leading-[1.68];
+}
+
+.markdown-body p {
+  @apply mb-3.5 last:mb-0;
+}
+
+.markdown-body ul {
+  @apply list-disc list-outside ml-6 mb-3.5 space-y-1.5;
+}
+
+.markdown-body ol {
+  @apply list-decimal list-outside ml-6 mb-3.5 space-y-1.5;
+}
+
+.markdown-body li {
+  @apply pl-1;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+  @apply text-white mt-6 mb-3 font-medium tracking-tight;
+}
+
+.markdown-body h1 {
+  @apply text-2xl;
+}
+
+.markdown-body h2 {
+  @apply text-xl pb-1.5 border-b border-white/10;
+}
+
+.markdown-body h3 {
+  @apply text-lg;
+}
+
+.markdown-body strong {
+  @apply text-white font-semibold;
+}
+
+.markdown-body blockquote {
+  @apply border-l-2 border-[#a8c7fa] pl-4 py-1.5 my-3 text-[#9aa0a6] italic bg-white/[0.03] backdrop-blur-xs rounded-r-xl;
+}
+
+.markdown-body table {
+  @apply w-full my-4 border-collapse border border-white/10 rounded-xl overflow-hidden text-sm bg-black/20 backdrop-blur-xs;
+}
+
+.markdown-body th {
+  @apply bg-[#14171f]/80 px-4 py-2.5 text-left font-medium text-[#a8c7fa] border border-white/10;
+}
+
+.markdown-body td {
+  @apply px-4 py-2 text-[#e6e8ec] border border-white/10 bg-[#0e1015]/40;
+}
+
+.markdown-body hr {
+  @apply border-white/10 my-6;
+}
+
+/* Inline math and display math KaTeX tweaks */
+.katex-display {
+  @apply my-3 overflow-x-auto overflow-y-hidden py-1.5 text-center bg-white/[0.02] rounded-xl border border-white/5;
+}
+
+.katex {
+  @apply text-[#e6e8ec];
+}
