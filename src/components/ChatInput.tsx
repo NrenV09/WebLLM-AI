@@ -77,7 +77,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             disabled={disabled}
             placeholder={isGenerating ? "Model is generating locally on WebGPU..." : "Ask anything... (Runs 100% locally & private)"}
             rows={1}
-            className="w-full bg-transparent text-[#e6e8ec] px-3 py-1.5 focus:outline-none resize-none max-h-52 min-h-[44px] text-[15px] placeholder-white/35 leading-relaxed font-sans"
+            className="w-full bg-transparent text-[#e6e8ec] px-3 py-1.5 focus:outline-none resize-none max-h-48 min-h-[44px] overflow-y-auto text-[15px] placeholder-white/35 leading-relaxed font-sans"
           />
 
           {/* Action Row inside capsule */}

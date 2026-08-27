@@ -215,7 +215,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         ) : (
           /* Message List */
-          <div className="max-w-3xl mx-auto flex flex-col pb-4">
+          <div className="max-w-3xl mx-auto flex flex-col pb-8">
             {messages.map((m, idx) => (
               <MessageItem
                 key={m.id || idx}
@@ -231,7 +231,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Chat Input Capsule Container */}
-      <div className="p-3 sm:p-4 flex-shrink-0 bg-gradient-to-t from-[#0b0d11] via-[#0b0d11]/85 to-transparent z-20">
+      <div className="px-3 py-3 sm:px-4 sm:py-3.5 pb-4 sm:pb-5 flex-shrink-0 bg-[#0b0d11] border-t border-white/[0.05] z-20 shadow-[0_-12px_30px_rgba(0,0,0,0.6)]">
         <div className="max-w-3xl mx-auto w-full">
           <ChatInput
             input={input}

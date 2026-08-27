@@ -461,7 +461,7 @@ export default function App() {
   // If WebGPU is unsupported
   if (status === 'unsupported') {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0b0d11] text-white p-6 font-sans relative overflow-hidden">
+      <div className="fixed inset-0 flex h-full w-full items-center justify-center bg-[#0b0d11] text-white p-6 font-sans overflow-hidden">
         <div className="max-w-md w-full p-8 border border-white/[0.08] bg-[#12141a]/85 backdrop-blur-2xl rounded-3xl text-center space-y-5 shadow-2xl">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/20">
             <AlertTriangle className="w-6 h-6" />
@@ -489,7 +489,7 @@ export default function App() {
   if (status === 'initial' || status === 'loading' || status === 'error') {
     const modelObj = MODELS.find(m => m.id === selectedModel) || MODELS[0];
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#0b0d11] text-white p-4 font-sans relative overflow-hidden">
+      <div className="fixed inset-0 flex h-full w-full items-center justify-center bg-[#0b0d11] text-white p-4 font-sans overflow-hidden">
         {/* Ambient radial lighting glow */}
         <div className="absolute w-[600px] h-[600px] bg-gradient-to-tr from-blue-600/10 via-indigo-600/10 to-purple-600/10 blur-[120px] rounded-full pointer-events-none -top-20 -left-20" />
         <div className="absolute w-[400px] h-[400px] bg-gradient-to-tr from-indigo-600/10 to-pink-600/10 blur-[100px] rounded-full pointer-events-none -bottom-20 -right-20" />
@@ -635,7 +635,7 @@ export default function App() {
 
   // Active Chat UI (Matching Ultra-Premium Dark Glassmorphic Aesthetics)
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#0b0d11] text-[#e6e8ec] font-sans antialiased relative">
+    <div className="fixed inset-0 flex h-full w-full overflow-hidden bg-[#0b0d11] text-[#e6e8ec] font-sans antialiased">
       {/* Sidebar */}
       <Sidebar
         isOpen={isSidebarOpen}
