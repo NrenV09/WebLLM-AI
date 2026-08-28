@@ -13,18 +13,19 @@ import {
   AlertTriangle, 
   Cpu, 
   Download, 
-  RefreshCw, 
-  HardDrive, 
   ShieldCheck, 
   Wifi, 
   WifiOff, 
   Loader2, 
-  Info,
-  ArrowRight
+  Zap,
+  CheckCircle2,
+  Clock,
+  Layers,
+  HardDrive
 } from 'lucide-react';
 import MLCWorker from './worker.ts?worker&inline';
-import { registerCustomModels } from './modelsConfig';
-import { ChatMessage, ChatSession, Diagnostics, ModelInfo, AISettings } from './types';
+import { AVAILABLE_MODELS, registerCustomModels } from './modelsConfig';
+import { ChatMessage, ChatSession, Diagnostics, ModelInfo, AISettings, DetailedProgress } from './types';
 import { 
   loadAllSessions, 
   saveAllSessions, 
@@ -44,15 +45,7 @@ import { StorageManagerModal } from './components/StorageManagerModal';
 
 registerCustomModels(prebuiltAppConfig);
 
-const MODELS: ModelInfo[] = [
-  { id: 'Phi-3.5-mini-instruct-q4f16_1-MLC', name: 'Phi-3.5 Mini', vramMB: 2500, ipadRecommended: true, isVision: false, sizeLabel: '2.5 GB • Fast & Balanced' },
-  { id: 'Phi-4-mini-instruct-q4f16_1-MLC', name: 'Phi-4 Mini', vramMB: 2600, ipadRecommended: true, isVision: false, sizeLabel: '2.6 GB • High Accuracy' },
-  { id: 'Qwen3-4B-q4f16_1-MLC', name: 'Qwen3 4B', vramMB: 2600, ipadRecommended: true, isVision: false, sizeLabel: '2.6 GB • Deep Reasoning' },
-  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC', name: 'Qwen 2.5 3B', vramMB: 2200, ipadRecommended: true, isVision: false, sizeLabel: '2.2 GB • Multilingual' },
-  { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', vramMB: 2200, ipadRecommended: true, isVision: false, sizeLabel: '2.2 GB • Meta Llama' },
-  { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 1B', vramMB: 800, ipadRecommended: true, isVision: false, sizeLabel: '800 MB • Ultralight' },
-  { id: 'SmolLM2-135M-Instruct-q0f16-MLC', name: 'SmolLM2 135M', vramMB: 150, ipadRecommended: true, isVision: false, sizeLabel: '150 MB • Instant Test' }
-];
+const MODELS: ModelInfo[] = AVAILABLE_MODELS;
 
 // Helper to normalize LaTeX expressions for KaTeX
 function preprocessLatex(content: string): string {
@@ -66,10 +59,87 @@ function preprocessLatex(content: string): string {
     .replace(/\\\)/g, '$');
 }
 
+function parseProgressTelemetry(report: InitProgressReport, modelVram: number): DetailedProgress {
+  const text = report.text || '';
+  const progressPercent = Math.min(100, Math.max(0, Math.round((report.progress || 0) * 100)));
+  const timeElapsed = Math.max(0, Math.round(report.timeElapsed || 0));
+
+  let stage: DetailedProgress['stage'] = 'initializing';
+  if (text.includes('Fetching param cache')) {
+    stage = 'downloading';
+  } else if (text.includes('Loading model from cache')) {
+    stage = 'loading_vram';
+  } else if (text.toLowerCase().includes('wasm') || text.toLowerCase().includes('shader') || text.toLowerCase().includes('pipeline')) {
+    stage = 'compiling';
+  } else if (text.includes('Finish') || progressPercent >= 100) {
+    stage = 'ready';
+  }
+
+  let currentShard = 0;
+  let totalShards = 0;
+  const shardMatch = text.match(/\[(\d+)\/(\d+)\]/);
+  if (shardMatch) {
+    currentShard = parseInt(shardMatch[1], 10);
+    totalShards = parseInt(shardMatch[2], 10);
+  }
+
+  let mbProcessed = 0;
+  const mbMatch = text.match(/(\d+)\s*MB\s*(?:fetched|loaded)/i);
+  if (mbMatch) {
+    mbProcessed = parseInt(mbMatch[1], 10);
+  } else if (report.progress > 0) {
+    mbProcessed = Math.round(report.progress * (modelVram || 2600));
+  }
+
+  const totalEstimatedMB = modelVram || 2600;
+
+  let speedMBs = 0;
+  if (timeElapsed > 0 && mbProcessed > 0) {
+    speedMBs = Math.round((mbProcessed / timeElapsed) * 10) / 10;
+  }
+
+  let etaSeconds: number | null = null;
+  if (progressPercent > 0 && progressPercent < 100 && speedMBs > 0) {
+    const remainingMB = Math.max(0, totalEstimatedMB - mbProcessed);
+    etaSeconds = Math.max(1, Math.round(remainingMB / speedMBs));
+  } else if (totalShards > 0 && currentShard > 0 && timeElapsed > 0 && currentShard < totalShards) {
+    const remainingShards = totalShards - currentShard;
+    const shardsPerSec = currentShard / timeElapsed;
+    if (shardsPerSec > 0) {
+      etaSeconds = Math.max(1, Math.round(remainingShards / shardsPerSec));
+    }
+  }
+
+  return {
+    rawText: text,
+    progressPercent,
+    stage,
+    currentShard,
+    totalShards,
+    mbProcessed,
+    totalEstimatedMB,
+    speedMBs,
+    timeElapsed,
+    etaSeconds
+  };
+}
+
 export default function App() {
   const engineRef = useRef<WebWorkerMLCEngine | MLCEngine | null>(null);
   const [status, setStatus] = useState<'initial' | 'unsupported' | 'loading' | 'ready' | 'error'>('initial');
   const [progress, setProgress] = useState<string>('');
+  const [detailedProgress, setDetailedProgress] = useState<DetailedProgress>({
+    rawText: '',
+    progressPercent: 0,
+    stage: 'initializing',
+    currentShard: 0,
+    totalShards: 0,
+    mbProcessed: 0,
+    totalEstimatedMB: 2600,
+    speedMBs: 0,
+    timeElapsed: 0,
+    etaSeconds: null
+  });
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [isCached, setIsCached] = useState(false);
@@ -117,13 +187,24 @@ export default function App() {
 
     let adapterOk: boolean | null = null;
     let name = '';
+    let vendor = '';
+    let supportsFp16 = false;
+    let maxStorageBufferMB: number | null = null;
+    let maxBufferSizeMB: number | null = null;
+
     if (webGpuSupported) {
       try {
-        const adapter = await (navigator as any).gpu.requestAdapter();
+        const adapter = await (navigator as any).gpu.requestAdapter({ powerPreference: 'high-performance' });
         adapterOk = !!adapter;
         if (adapter) {
           const info = await (adapter as any).requestAdapterInfo?.();
-          name = info?.description || info?.device || 'WebGPU Hardware Accelerated Adapter';
+          name = info?.description || info?.device || 'WebGPU High-Performance Adapter';
+          vendor = info?.vendor || '';
+          supportsFp16 = adapter.features?.has?.('shader-f16') || false;
+          if (adapter.limits) {
+            maxStorageBufferMB = Math.round((adapter.limits.maxStorageBufferBindingSize || 0) / (1024 * 1024));
+            maxBufferSizeMB = Math.round((adapter.limits.maxBufferSize || 0) / (1024 * 1024));
+          }
         }
       } catch {
         adapterOk = false;
@@ -138,6 +219,10 @@ export default function App() {
       hasWebGpu: webGpuSupported,
       adapterFound: adapterOk,
       adapterName: name,
+      gpuVendor: vendor,
+      supportsFp16,
+      maxStorageBufferMB,
+      maxBufferSizeMB,
       storageQuotaMB: storageInfo.quotaMB,
       storageUsageMB: storageInfo.usageMB,
       storagePersisted: storageInfo.persisted,
@@ -238,12 +323,31 @@ export default function App() {
     }
   };
 
-  // Model Engine Lifecycle
+  // Model Engine Lifecycle with Telemetry and KV-Cache Overrides
   const initEngine = async (modelToLoad: string = selectedModel, forceMode?: 'worker' | 'main') => {
     const chosenMode = forceMode || executionMode;
+    const modelObj = MODELS.find(m => m.id === modelToLoad) || MODELS[0];
+    
     setStatus('loading');
-    setProgress('Initializing WebGPU pipeline...');
+    setProgress('Initializing WebGPU hardware acceleration...');
+    setDetailedProgress({
+      rawText: 'Initializing WebGPU hardware acceleration...',
+      progressPercent: 2,
+      stage: 'initializing',
+      currentShard: 0,
+      totalShards: 0,
+      mbProcessed: 0,
+      totalEstimatedMB: modelObj.vramMB,
+      speedMBs: 0,
+      timeElapsed: 0,
+      etaSeconds: null
+    });
     setErrorMsg('');
+
+    // Ensure persistent storage is requested
+    try {
+      await requestPersistentStorage();
+    } catch {}
 
     try {
       if (engineRef.current) {
@@ -253,6 +357,12 @@ export default function App() {
 
       const initProgressCallback = (report: InitProgressReport) => {
         setProgress(report.text);
+        const parsed = parseProgressTelemetry(report, modelObj.vramMB);
+        setDetailedProgress(parsed);
+      };
+
+      const chatOptions = {
+        context_window_size: aiSettings.contextWindowSize || 3072
       };
 
       if (chosenMode === 'worker') {
@@ -263,8 +373,10 @@ export default function App() {
             modelToLoad,
             { 
               initProgressCallback,
-              appConfig: prebuiltAppConfig
-            }
+              appConfig: prebuiltAppConfig,
+              logLevel: 'INFO'
+            },
+            chatOptions
           );
           engineRef.current = engine;
         } catch (workerErr: any) {
@@ -274,8 +386,10 @@ export default function App() {
             modelToLoad,
             {
               initProgressCallback,
-              appConfig: prebuiltAppConfig
-            }
+              appConfig: prebuiltAppConfig,
+              logLevel: 'INFO'
+            },
+            chatOptions
           );
           engineRef.current = engine;
         }
@@ -284,8 +398,10 @@ export default function App() {
           modelToLoad,
           {
             initProgressCallback,
-            appConfig: prebuiltAppConfig
-          }
+            appConfig: prebuiltAppConfig,
+            logLevel: 'INFO'
+          },
+          chatOptions
         );
         engineRef.current = engine;
       }
@@ -452,25 +568,24 @@ export default function App() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    if (engineRef.current) {
-      engineRef.current.interruptGenerate();
-    }
-    setIsTyping(false);
   };
 
-  // If WebGPU is unsupported
+  // Hardware Unsupported Fallback Screen
   if (status === 'unsupported') {
     return (
-      <div className="fixed inset-0 flex h-full w-full items-center justify-center bg-[#0b0d11] text-white p-6 font-sans overflow-hidden">
-        <div className="max-w-md w-full p-8 border border-white/[0.08] bg-[#12141a]/85 backdrop-blur-2xl rounded-3xl text-center space-y-5 shadow-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/20">
-            <AlertTriangle className="w-6 h-6" />
+      <div className="fixed inset-0 flex h-full w-full items-center justify-center bg-[#0b0d11] text-white p-6 font-sans">
+        <div className="max-w-md w-full p-8 border border-white/[0.08] bg-[#12141a]/90 backdrop-blur-2xl rounded-3xl text-center space-y-6 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto">
+            <Cpu className="w-8 h-8" />
           </div>
-          <h1 className="text-xl font-medium">WebGPU Acceleration Required</h1>
-          <p className="text-sm text-white/60 leading-relaxed">
-            Local AI runs 100% on your device using hardware-accelerated WebGPU. Your current browser does not support WebGPU or hardware acceleration is disabled.
-          </p>
-          <div className="p-3 bg-black/40 rounded-2xl text-xs text-white/50 text-left space-y-1 font-mono border border-white/[0.05]">
+          <div className="space-y-2">
+            <h1 className="text-xl font-semibold tracking-tight">WebGPU Acceleration Required</h1>
+            <p className="text-sm text-white/60 leading-relaxed">
+              Your browser or graphics driver does not currently have WebGPU active. WebGPU is needed to execute model weights natively in local VRAM with zero cloud servers.
+            </p>
+          </div>
+          <div className="p-4 bg-white/[0.03] rounded-2xl border border-white/[0.06] text-xs text-left text-white/70 space-y-2 font-mono">
+            <div className="font-semibold text-white/90 font-sans">How to enable WebGPU:</div>
             <div>• Chrome/Brave/Edge: Settings &rarr; System &rarr; Enable Hardware Acceleration</div>
             <div>• Safari: Settings &rarr; Advanced &rarr; Feature Flags &rarr; WebGPU</div>
           </div>
@@ -485,7 +600,7 @@ export default function App() {
     );
   }
 
-  // Initial Model Launcher Screen
+  // Initial Model Launcher & High-Performance Telemetry Loading Screen
   if (status === 'initial' || status === 'loading' || status === 'error') {
     const modelObj = MODELS.find(m => m.id === selectedModel) || MODELS[0];
     return (
@@ -494,7 +609,7 @@ export default function App() {
         <div className="absolute w-[600px] h-[600px] bg-gradient-to-tr from-blue-600/10 via-indigo-600/10 to-purple-600/10 blur-[120px] rounded-full pointer-events-none -top-20 -left-20" />
         <div className="absolute w-[400px] h-[400px] bg-gradient-to-tr from-indigo-600/10 to-pink-600/10 blur-[100px] rounded-full pointer-events-none -bottom-20 -right-20" />
 
-        <div className="max-w-md w-full p-7 sm:p-9 border border-white/[0.08] bg-[#12141a]/85 backdrop-blur-2xl rounded-3xl relative overflow-hidden shadow-2xl z-10 space-y-6">
+        <div className="max-w-lg w-full p-6 sm:p-8 border border-white/[0.08] bg-[#12141a]/85 backdrop-blur-2xl rounded-3xl relative overflow-hidden shadow-2xl z-10 space-y-5">
           {/* Header & Network Badge */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3.5">
@@ -504,8 +619,8 @@ export default function App() {
                 </div>
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-white tracking-tight">Local AI</h1>
-                <p className="text-xs text-white/50">100% on-device WebGPU intelligence</p>
+                <h1 className="text-lg font-semibold text-white tracking-tight">Local AI WebGPU</h1>
+                <p className="text-xs text-white/50">High-performance on-device intelligence</p>
               </div>
             </div>
 
@@ -528,16 +643,16 @@ export default function App() {
             </div>
           </div>
 
-          {/* Model Selection Dropdown */}
-          <div className="space-y-2">
+          {/* Model Selection Dropdown & Info */}
+          <div className="space-y-2.5">
             <label className="block text-xs font-semibold text-white/40 uppercase tracking-wider">
-              Select Model
+              Selected LLM Architecture (&lt; 3GB VRAM)
             </label>
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               disabled={status === 'loading'}
-              className="w-full bg-[#0b0d11]/80 border border-white/[0.08] text-white rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-[#a8c7fa]/50 transition-colors cursor-pointer"
+              className="w-full bg-[#0b0d11]/80 border border-white/[0.08] text-white rounded-2xl px-4 py-3 text-xs sm:text-sm focus:outline-none focus:border-[#a8c7fa]/50 transition-colors cursor-pointer"
             >
               {MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -545,24 +660,122 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-white/40 leading-snug px-1">
-              Requires ~{modelObj.vramMB} MB VRAM. Model weights are cached locally for permanent offline execution.
-            </p>
+
+            {modelObj.description && (
+              <p className="text-[11px] text-white/50 leading-relaxed px-1">
+                {modelObj.description}
+              </p>
+            )}
           </div>
 
-          {/* Progress / Loading Bar */}
+          {/* Hardware Acceleration & Context Window Selection */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-white/40 uppercase tracking-wider">
+                Acceleration Profile (KV-Cache)
+              </span>
+              <span className="text-[11px] text-[#a8c7fa]">
+                {aiSettings.contextWindowSize || 3072} Tokens
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { size: 2048, label: '⚡ Turbo (2K)', hint: '35% Faster' },
+                { size: 3072, label: '⚖️ Balanced', hint: 'Default 3K' },
+                { size: 4096, label: '🧠 Deep (4K)', hint: 'Full Length' }
+              ].map((opt) => {
+                const active = (aiSettings.contextWindowSize || 3072) === opt.size;
+                return (
+                  <button
+                    key={opt.size}
+                    disabled={status === 'loading'}
+                    onClick={() => {
+                      const updated = { ...aiSettings, contextWindowSize: opt.size };
+                      setAiSettings(updated);
+                      saveAISettings(updated);
+                    }}
+                    className={`py-2 px-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                      active
+                        ? 'bg-blue-500/20 border-[#a8c7fa]/60 text-white font-medium shadow-sm'
+                        : 'bg-white/[0.02] border-white/[0.06] text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <div className="text-xs">{opt.label}</div>
+                    <div className="text-[9px] text-white/40">{opt.hint}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Detailed Loading Dashboard */}
           {status === 'loading' && (
-            <div className="space-y-2.5 p-4 rounded-2xl bg-black/40 border border-white/[0.06] animate-in fade-in">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-2 text-[#a8c7fa] font-medium">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Loading model shaders & weights...</span>
-                </span>
+            <div className="space-y-3.5 p-4 rounded-2xl bg-black/50 border border-white/[0.08] shadow-inner animate-in fade-in">
+              {/* Top Progress bar and Percentage */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="flex items-center gap-2 text-[#a8c7fa]">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>
+                      {detailedProgress.stage === 'downloading' && 'Fetching Model Parameter Shards...'}
+                      {detailedProgress.stage === 'loading_vram' && 'Streaming into WebGPU VRAM...'}
+                      {detailedProgress.stage === 'compiling' && 'Compiling Shaders & KV Pipeline...'}
+                      {detailedProgress.stage === 'ready' && 'Model Ready! Launching...'}
+                      {detailedProgress.stage === 'initializing' && 'Initializing WebGPU Hardware...'}
+                    </span>
+                  </span>
+                  <span className="font-mono text-white text-xs font-semibold">
+                    {detailedProgress.progressPercent}%
+                  </span>
+                </div>
+
+                <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden relative">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-[#a8c7fa] rounded-full transition-all duration-300 relative shadow-lg shadow-blue-500/50"
+                    style={{ width: `${Math.max(3, detailedProgress.progressPercent)}%` }}
+                  >
+                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                  </div>
+                </div>
               </div>
-              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-[#a8c7fa] rounded-full animate-pulse w-full" />
+
+              {/* 4-Tile Telemetry Metric Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
+                  <div className="text-[10px] text-white/40 uppercase font-mono">Speed</div>
+                  <div className="text-xs font-semibold text-emerald-300 font-mono">
+                    {detailedProgress.speedMBs > 0 ? `${detailedProgress.speedMBs} MB/s` : 'VRAM Stream'}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
+                  <div className="text-[10px] text-white/40 uppercase font-mono">ETA</div>
+                  <div className="text-xs font-semibold text-amber-300 font-mono">
+                    {detailedProgress.etaSeconds ? `~${detailedProgress.etaSeconds}s` : `${detailedProgress.timeElapsed}s elapsed`}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
+                  <div className="text-[10px] text-white/40 uppercase font-mono">Shards</div>
+                  <div className="text-xs font-semibold text-white/90 font-mono">
+                    {detailedProgress.totalShards > 0 
+                      ? `${detailedProgress.currentShard}/${detailedProgress.totalShards}`
+                      : 'Syncing'}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
+                  <div className="text-[10px] text-white/40 uppercase font-mono">Processed</div>
+                  <div className="text-xs font-semibold text-indigo-300 font-mono">
+                    {detailedProgress.mbProcessed > 0 ? `${detailedProgress.mbProcessed} MB` : `${detailedProgress.progressPercent}%`}
+                  </div>
+                </div>
               </div>
-              <p className="text-[11px] font-mono text-white/50 truncate pt-0.5">{progress}</p>
+
+              {/* Raw Telemetry Text */}
+              <p className="text-[11px] font-mono text-white/40 truncate leading-none pt-0.5">
+                {detailedProgress.rawText || progress}
+              </p>
             </div>
           )}
 
@@ -587,12 +800,12 @@ export default function App() {
               {status === 'loading' ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Loading Engine...</span>
+                  <span>Accelerating WebGPU Pipeline...</span>
                 </>
               ) : isCached ? (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Launch Cached Model</span>
+                  <span>Launch Cached Model (Instant VRAM)</span>
                 </>
               ) : (
                 <>
@@ -602,17 +815,31 @@ export default function App() {
               )}
             </button>
 
-            {/* Offline & Storage Protection Status */}
-            <div className="p-3.5 bg-white/[0.02] rounded-2xl border border-white/[0.06] space-y-1.5 text-xs">
+            {/* Quick Instant Test Option */}
+            {status !== 'loading' && selectedModel !== 'SmolLM2-135M-Instruct-q0f16-MLC' && (
+              <button
+                onClick={() => {
+                  setSelectedModel('SmolLM2-135M-Instruct-q0f16-MLC');
+                  initEngine('SmolLM2-135M-Instruct-q0f16-MLC');
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-white/70 hover:text-white text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Instant 2-Second WebGPU Test (SmolLM2 135M • 150MB)</span>
+              </button>
+            )}
+
+            {/* Offline & Hardware Protection Status */}
+            <div className="p-3 bg-white/[0.02] rounded-2xl border border-white/[0.06] space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-white/80 font-medium">
-                  <ShieldCheck className={`w-4 h-4 ${diagnostics.storagePersisted ? 'text-emerald-400' : 'text-amber-400'}`} />
+                  <ShieldCheck className={`w-3.5 h-3.5 ${diagnostics.storagePersisted ? 'text-emerald-400' : 'text-amber-400'}`} />
                   <span>Storage Persistence</span>
                 </span>
                 <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
                   diagnostics.storagePersisted ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
                 }`}>
-                  {diagnostics.storagePersisted ? 'Persistent' : 'Auto'}
+                  {diagnostics.storagePersisted ? 'Persistent' : 'Auto Cache'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-white/40 pt-0.5">
@@ -622,7 +849,7 @@ export default function App() {
                     onClick={handleClearModelCache}
                     className="text-[#f28b82] hover:underline cursor-pointer"
                   >
-                    Clear
+                    Clear Cache
                   </button>
                 )}
               </div>

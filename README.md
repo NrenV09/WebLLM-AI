@@ -19,17 +19,13 @@
 
 ---
 
-## 🤖 Supported On-Device Models
+## 🤖 Supported On-Device Models (< 3 GB)
 
-| Model | Parameters | Approx. VRAM | Best For |
+| Model | Parameters | Approx. VRAM / Download | Best For |
 | :--- | :--- | :--- | :--- |
-| **Qwen 2.5 0.5B** | 0.5 Billion | ~350 MB | Ultra-fast responses, low-memory devices |
-| **SmolLM2 1.7B** | 1.7 Billion | ~950 MB | Everyday tasks, lightweight reasoning |
-| **Llama 3.2 1B** | 1.2 Billion | ~800 MB | Fast general conversation & summarization |
-| **Llama 3.2 3B** | 3.2 Billion | ~1.8 GB | High-quality reasoning, creative writing |
-| **Qwen 2.5 1.5B** | 1.5 Billion | ~1.1 GB | Multilingual & structured logic |
-| **DeepSeek R1 Distill Qwen 1.5B** | 1.5 Billion | ~1.2 GB | Step-by-step reasoning & math with `<think>` tags |
-| **Gemma 2 2B** | 2.6 Billion | ~1.6 GB | General instruction following & coding |
+| **Qwen3 4B** (`Qwen3-4B-q4f16_1-MLC`) | 4.0 Billion | ~2.6 GB | Deep reasoning, complex logic & code generation |
+| **Phi-4 Mini (Latest Phi)** (`Phi-4-mini-instruct-q4f16_1-MLC`) | 3.8 Billion | ~2.6 GB | Microsoft's latest compact model: advanced math, logic & reasoning |
+| **Phi-3.5 Mini** (`Phi-3.5-mini-instruct-q4f16_1-MLC`) | 3.8 Billion | ~2.5 GB | Fast responses, balanced instruction-following & multilingual chat |
 
 ---
 

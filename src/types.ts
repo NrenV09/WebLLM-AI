@@ -28,6 +28,7 @@ export interface ModelInfo {
   ipadRecommended: boolean;
   isVision: boolean;
   sizeLabel?: string;
+  highlight?: string;
 }
 
 export interface AISettings {
@@ -36,6 +37,7 @@ export interface AISettings {
   repetition_penalty: number;
   max_tokens: number;
   systemPrompt: string;
+  contextWindowSize?: number;
 }
 
 export interface Diagnostics {
@@ -44,8 +46,26 @@ export interface Diagnostics {
   hasWebGpu: boolean;
   adapterFound: boolean | null;
   adapterName: string;
+  gpuVendor?: string;
+  supportsFp16?: boolean;
+  maxStorageBufferMB?: number | null;
+  maxBufferSizeMB?: number | null;
   storageQuotaMB: number | null;
   storageUsageMB: number | null;
   storagePersisted: boolean;
   serviceWorkerActive: boolean;
 }
+
+export interface DetailedProgress {
+  rawText: string;
+  progressPercent: number; // 0 to 100
+  stage: 'initializing' | 'downloading' | 'loading_vram' | 'compiling' | 'ready';
+  currentShard: number;
+  totalShards: number;
+  mbProcessed: number;
+  totalEstimatedMB: number;
+  speedMBs: number;
+  timeElapsed: number;
+  etaSeconds: number | null;
+}
+
