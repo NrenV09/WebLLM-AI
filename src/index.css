@@ -130,3 +130,17 @@ html, body {
 .katex {
   @apply text-[#e6e8ec];
 }
+
+/* Press and hold animation for chat deletion */
+@keyframes holdProgress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-hold-progress {
+  animation: holdProgress 500ms linear forwards;
+}
