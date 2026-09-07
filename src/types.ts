@@ -68,5 +68,7 @@ export interface DetailedProgress {
   speedMBs: number;
   timeElapsed: number;
   etaSeconds: number | null;
+  step?: 1 | 2; // 1: Download Parameters, 2: Configure WebGPU Pipeline
+  stepName?: string;
 }
 

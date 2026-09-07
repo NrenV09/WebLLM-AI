@@ -21,11 +21,14 @@ import {
   CheckCircle2,
   Clock,
   Layers,
-  HardDrive
+  HardDrive,
+  ArrowRight,
+  XCircle
 } from 'lucide-react';
 import MLCWorker from './worker.ts?worker&inline';
 import { AVAILABLE_MODELS, registerCustomModels } from './modelsConfig';
 import { ChatMessage, ChatSession, Diagnostics, ModelInfo, AISettings, DetailedProgress } from './types';
+import { downloadModelParameters, checkModelParamProgress } from './lib/modelDownloader';
 import { 
   loadAllSessions, 
   saveAllSessions, 
@@ -133,6 +136,9 @@ function parseProgressTelemetry(report: InitProgressReport, modelVram: number): 
     }
   }
 
+  const step: 1 | 2 = (stage === 'loading_vram' || stage === 'compiling' || stage === 'ready') ? 2 : 1;
+  const stepName = step === 1 ? 'Download Parameters' : 'Configure WebGPU Pipeline';
+
   return {
     rawText: text,
     progressPercent,
@@ -144,7 +150,9 @@ function parseProgressTelemetry(report: InitProgressReport, modelVram: number): 
     totalEstimatedMB,
     speedMBs,
     timeElapsed,
-    etaSeconds
+    etaSeconds,
+    step,
+    stepName
   };
 }
 
@@ -163,7 +171,9 @@ export default function App() {
     totalEstimatedMB: 2600,
     speedMBs: 0,
     timeElapsed: 0,
-    etaSeconds: null
+    etaSeconds: null,
+    step: 1,
+    stepName: 'Download Parameters'
   });
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
@@ -204,6 +214,15 @@ export default function App() {
   const messages = activeSession?.messages || [];
 
   // Diagnostics and persistent storage check
+  const [paramStatus, setParamStatus] = useState<{
+    isComplete: boolean;
+    percent: number;
+    cachedShards: number;
+    totalShards: number;
+    cachedBytes: number;
+  }>({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
+  const initAbortControllerRef = useRef<AbortController | null>(null);
+
   const runDiagnostics = async () => {
     const ua = navigator.userAgent || '';
     const isIosDevice = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -283,11 +302,17 @@ export default function App() {
     });
   }, []);
 
-  // Check model cache status
+  // Check model cache status & parameter download progress
   useEffect(() => {
-    hasModelInCache(selectedModel, prebuiltAppConfig).then(cached => {
-      setIsCached(cached);
-    }).catch(() => setIsCached(false));
+    checkModelParamProgress(selectedModel).then(res => {
+      setParamStatus(res);
+      setIsCached(res.isComplete);
+    }).catch(() => {
+      hasModelInCache(selectedModel, prebuiltAppConfig).then(cached => {
+        setIsCached(cached);
+        setParamStatus({ isComplete: cached, percent: cached ? 100 : 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
+      }).catch(() => setIsCached(false));
+    });
   }, [selectedModel]);
 
   // Session Handlers
@@ -348,26 +373,59 @@ export default function App() {
     }
   };
 
-  // Model Engine Lifecycle with Telemetry and KV-Cache Overrides
+  const cancelInit = () => {
+    if (initAbortControllerRef.current) {
+      initAbortControllerRef.current.abort();
+      initAbortControllerRef.current = null;
+    }
+    setStatus('initial');
+    setProgress('');
+  };
+
+  const handleDownloadParamsOnly = async (modelToLoad: string = selectedModel) => {
+    const modelObj = MODELS.find(m => m.id === modelToLoad) || MODELS[0];
+    setStatus('loading');
+    setProgress('Step 1 of 2: Downloading model parameters...');
+    initAbortControllerRef.current = new AbortController();
+
+    try {
+      await requestPersistentStorage();
+    } catch {}
+
+    try {
+      await downloadModelParameters(
+        modelToLoad,
+        (telemetry) => {
+          setDetailedProgress(telemetry);
+          setProgress(telemetry.rawText);
+        },
+        initAbortControllerRef.current.signal
+      );
+      setIsCached(true);
+      const res = await checkModelParamProgress(modelToLoad);
+      setParamStatus(res);
+      setStatus('initial');
+      setProgress('Parameters 100% downloaded and stored in browser cache! Ready to configure WebGPU pipeline.');
+      await runDiagnostics();
+    } catch (err: any) {
+      if (err.message?.includes('aborted') || initAbortControllerRef.current?.signal.aborted) {
+        setStatus('initial');
+        return;
+      }
+      setStatus('error');
+      setErrorMsg(err.message || 'Failed to download model parameters');
+    }
+  };
+
+  // Model Engine Lifecycle with Sequential Two-Phase Execution:
+  // Phase 1: Download parameters first (into CacheStorage)
+  // Phase 2: Configure WebGPU pipeline (stream into VRAM, compile shaders & KV cache)
   const initEngine = async (modelToLoad: string = selectedModel, forceMode?: 'worker' | 'main') => {
     const chosenMode = forceMode || executionMode;
     const modelObj = MODELS.find(m => m.id === modelToLoad) || MODELS[0];
+    initAbortControllerRef.current = new AbortController();
     
     setStatus('loading');
-    setProgress('Initializing WebGPU hardware acceleration...');
-    setDetailedProgress({
-      rawText: 'Initializing WebGPU hardware acceleration...',
-      progressPercent: 2,
-      paramsPercent: 0,
-      stage: 'initializing',
-      currentShard: 0,
-      totalShards: 0,
-      mbProcessed: 0,
-      totalEstimatedMB: modelObj.vramMB,
-      speedMBs: 0,
-      timeElapsed: 0,
-      etaSeconds: null
-    });
     setErrorMsg('');
 
     // Ensure persistent storage is requested
@@ -376,6 +434,55 @@ export default function App() {
     } catch {}
 
     try {
+      // Step 1: Check if parameters are already cached
+      const cacheStatus = await checkModelParamProgress(modelToLoad);
+      const alreadyCached = cacheStatus.isComplete || await hasModelInCache(modelToLoad, prebuiltAppConfig).catch(() => false);
+
+      if (!alreadyCached) {
+        // Explicit Phase 1: Download parameters first
+        setProgress('Step 1 of 2: Downloading model parameters...');
+        setDetailedProgress({
+          rawText: 'Step 1 of 2: Initializing parameter download stream...',
+          progressPercent: cacheStatus.percent || 0,
+          paramsPercent: cacheStatus.percent || 0,
+          stage: 'downloading',
+          currentShard: cacheStatus.cachedShards || 0,
+          totalShards: cacheStatus.totalShards || 0,
+          mbProcessed: Math.round((cacheStatus.cachedBytes || 0) / (1024 * 1024)),
+          totalEstimatedMB: modelObj.vramMB,
+          speedMBs: 0,
+          timeElapsed: 0,
+          etaSeconds: null,
+          step: 1,
+          stepName: 'Download Parameters'
+        });
+
+        await downloadModelParameters(
+          modelToLoad,
+          (telemetry) => {
+            setDetailedProgress(telemetry);
+            setProgress(telemetry.rawText);
+          },
+          initAbortControllerRef.current.signal
+        );
+
+        setIsCached(true);
+        const updatedStatus = await checkModelParamProgress(modelToLoad);
+        setParamStatus(updatedStatus);
+      }
+
+      // Explicit Phase 2: Now configure the WebGPU pipeline
+      setProgress('Step 2 of 2: Configuring WebGPU pipeline and streaming into VRAM...');
+      setDetailedProgress(prev => ({
+        ...prev,
+        rawText: 'Step 2 of 2: Parameters downloaded (100%). Streaming into WebGPU VRAM & compiling pipeline...',
+        progressPercent: 5,
+        paramsPercent: 100,
+        stage: 'loading_vram',
+        step: 2,
+        stepName: 'Configure WebGPU Pipeline'
+      }));
+
       if (engineRef.current) {
         await engineRef.current.unload();
         engineRef.current = null;
@@ -384,7 +491,12 @@ export default function App() {
       const initProgressCallback = (report: InitProgressReport) => {
         setProgress(report.text);
         const parsed = parseProgressTelemetry(report, modelObj.vramMB);
-        setDetailedProgress(parsed);
+        setDetailedProgress({
+          ...parsed,
+          paramsPercent: 100,
+          step: 2,
+          stepName: 'Configure WebGPU Pipeline'
+        });
       };
 
       const chatOptions = {
@@ -436,6 +548,10 @@ export default function App() {
       setIsCached(true);
       await runDiagnostics();
     } catch (err: any) {
+      if (err.message?.includes('aborted') || initAbortControllerRef.current?.signal.aborted) {
+        setStatus('initial');
+        return;
+      }
       console.error('Model initialization error:', err);
       setStatus('error');
       setErrorMsg(err.message || 'Failed to initialize WebGPU engine');
@@ -461,6 +577,8 @@ export default function App() {
       }
     }
     setIsCached(false);
+    setParamStatus({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
+    await runDiagnostics();
   };
 
   // Send Message / Generation Handler
@@ -734,22 +852,110 @@ export default function App() {
             </div>
           </div>
 
+          {/* Two-Step Execution Stepper: Downloads Params First, Then Configures Pipeline */}
+          <div className="p-3.5 bg-black/40 border border-white/[0.08] rounded-2xl space-y-2.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-white/50 uppercase tracking-wider">
+              <span>Execution Pipeline</span>
+              <span className="text-[#a8c7fa] font-mono text-[11px] normal-case">Download Params First → Configure Pipeline</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Step 1 Card */}
+              <div className={`p-3 rounded-xl border transition-all ${
+                status === 'loading' && detailedProgress.step === 1
+                  ? 'bg-blue-500/15 border-blue-500/40 shadow-sm shadow-blue-500/20'
+                  : isCached || (status === 'loading' && detailedProgress.step === 2)
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+                    : 'bg-white/[0.02] border-white/[0.06] text-white/60'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                      isCached || (status === 'loading' && detailedProgress.step === 2)
+                        ? 'bg-emerald-500 text-black'
+                        : status === 'loading' && detailedProgress.step === 1
+                          ? 'bg-blue-500 text-white animate-pulse'
+                          : 'bg-white/10 text-white/70'
+                    }`}>
+                      {isCached || (status === 'loading' && detailedProgress.step === 2) ? '✓' : '1'}
+                    </span>
+                    <span className="text-white font-semibold">1. Download Params</span>
+                  </div>
+                  {isCached ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                      100%
+                    </span>
+                  ) : status === 'loading' && detailedProgress.step === 1 ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold">
+                      {detailedProgress.paramsPercent}%
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-[10px] text-white/40 pt-1 font-mono">
+                  {isCached 
+                    ? 'Weights cached in storage' 
+                    : status === 'loading' && detailedProgress.step === 1
+                      ? `Downloading shards (${detailedProgress.paramsPercent}%)`
+                      : `~${modelObj.vramMB} MB parameter shards`}
+                </div>
+              </div>
+
+              {/* Step 2 Card */}
+              <div className={`p-3 rounded-xl border transition-all ${
+                status === 'loading' && detailedProgress.step === 2
+                  ? 'bg-indigo-500/15 border-indigo-500/40 shadow-sm shadow-indigo-500/20'
+                  : isCached
+                    ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-200'
+                    : 'bg-white/[0.02] border-white/[0.06] text-white/60'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                      status === 'loading' && detailedProgress.step === 2
+                        ? 'bg-indigo-500 text-white animate-pulse'
+                        : isCached
+                          ? 'bg-indigo-400 text-black'
+                          : 'bg-white/10 text-white/70'
+                    }`}>
+                      2
+                    </span>
+                    <span className="text-white font-semibold">2. Configure Pipeline</span>
+                  </div>
+                  {status === 'loading' && detailedProgress.step === 2 ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold">
+                      Configuring...
+                    </span>
+                  ) : isCached ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold">
+                      Ready
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-[10px] text-white/40 pt-1 font-mono">
+                  {status === 'loading' && detailedProgress.step === 2
+                    ? 'Streaming VRAM & compiling shaders'
+                    : isCached
+                      ? 'Ready to configure instant WebGPU pipeline'
+                      : 'Configures once parameters are downloaded'}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Detailed Loading Dashboard */}
           {status === 'loading' && (
             <div id="loading-telemetry-dashboard" className="space-y-3.5 p-4 rounded-2xl bg-black/50 border border-white/[0.08] shadow-inner animate-in fade-in">
-              {/* Top Progress bar and Percentage */}
+              {/* Step indicator and percentage badge */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-medium">
                   <span className="flex items-center gap-2 text-[#a8c7fa]">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     <span>
-                      {detailedProgress.stage === 'downloading' && (
-                        <>Downloading Parameters: <strong className="text-white font-mono">{detailedProgress.paramsPercent}%</strong></>
+                      {detailedProgress.step === 1 ? (
+                        <>Step 1 of 2: Downloading Parameters (<strong className="text-white font-mono">{detailedProgress.paramsPercent}%</strong>)</>
+                      ) : (
+                        <>Step 2 of 2: Configuring WebGPU Pipeline & VRAM...</>
                       )}
-                      {detailedProgress.stage === 'loading_vram' && 'Streaming into WebGPU VRAM...'}
-                      {detailedProgress.stage === 'compiling' && 'Compiling Shaders & KV Pipeline...'}
-                      {detailedProgress.stage === 'ready' && 'Model Ready! Launching...'}
-                      {detailedProgress.stage === 'initializing' && 'Initializing WebGPU Hardware...'}
                     </span>
                   </span>
                   <div className="flex items-center gap-2">
@@ -761,7 +967,7 @@ export default function App() {
                           : 'bg-blue-500/20 border-blue-500/30 text-blue-200'
                       }`}
                     >
-                      {detailedProgress.paramsPercent}% Downloaded
+                      {detailedProgress.paramsPercent}% Params Downloaded
                     </span>
                   </div>
                 </div>
@@ -771,7 +977,7 @@ export default function App() {
                   <div 
                     id="params-progress-bar"
                     className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-[#a8c7fa] rounded-full transition-all duration-300 relative shadow-lg shadow-blue-500/50"
-                    style={{ width: `${Math.max(3, detailedProgress.stage === 'downloading' ? detailedProgress.paramsPercent : detailedProgress.progressPercent)}%` }}
+                    style={{ width: `${Math.max(3, detailedProgress.step === 1 ? detailedProgress.paramsPercent : detailedProgress.progressPercent)}%` }}
                   >
                     <div className="absolute inset-0 bg-white/20 animate-pulse" />
                   </div>
@@ -781,8 +987,10 @@ export default function App() {
                 <div className="flex items-center justify-between text-[11px] font-mono text-white/60 px-0.5">
                   <span className="flex items-center gap-1.5 text-blue-300 font-medium">
                     <Download className="w-3 h-3 text-blue-400" />
-                    <span>Params Downloaded:</span>
-                    <span className="text-white font-bold">{detailedProgress.paramsPercent}%</span>
+                    <span>Phase:</span>
+                    <span className="text-white font-semibold">
+                      {detailedProgress.step === 1 ? '1. Parameter Download' : '2. Pipeline Configuration'}
+                    </span>
                   </span>
                   <span className="text-white/40">
                     {detailedProgress.mbProcessed > 0 
@@ -837,10 +1045,19 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Raw Telemetry Text */}
-              <p className="text-[11px] font-mono text-white/40 truncate leading-none pt-0.5">
-                {detailedProgress.rawText || progress}
-              </p>
+              {/* Raw Telemetry Text & Cancel Button */}
+              <div className="flex items-center justify-between pt-0.5 gap-2">
+                <p className="text-[11px] font-mono text-white/40 truncate leading-none">
+                  {detailedProgress.rawText || progress}
+                </p>
+                <button
+                  onClick={cancelInit}
+                  className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 whitespace-nowrap"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Cancel</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -855,8 +1072,8 @@ export default function App() {
             </div>
           )}
 
-          {/* Launch / Start Button */}
-          <div className="space-y-3 pt-1">
+          {/* Launch / Action Buttons */}
+          <div className="space-y-2.5 pt-1">
             <button
               onClick={() => initEngine(selectedModel)}
               disabled={status === 'loading'}
@@ -866,25 +1083,34 @@ export default function App() {
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>
-                    {detailedProgress.stage === 'downloading'
-                      ? `Downloading Parameters (${detailedProgress.paramsPercent}%)...`
-                      : detailedProgress.stage === 'loading_vram'
-                        ? `Loading into WebGPU VRAM (${detailedProgress.paramsPercent}% downloaded)...`
-                        : `Compiling Pipeline (${detailedProgress.progressPercent}%)...`}
+                    {detailedProgress.step === 1
+                      ? `Step 1/2: Downloading Parameters (${detailedProgress.paramsPercent}%)...`
+                      : `Step 2/2: Configuring Pipeline (${detailedProgress.progressPercent}%)...`}
                   </span>
                 </>
               ) : isCached ? (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Launch Cached Model (Instant VRAM)</span>
+                  <span>Configure WebGPU Pipeline (Instant VRAM)</span>
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Download & Launch ({modelObj.vramMB} MB)</span>
+                  <span>Download Params & Configure Pipeline</span>
                 </>
               )}
             </button>
+
+            {/* Pre-Download Params Option (If Not Cached) */}
+            {status !== 'loading' && !isCached && (
+              <button
+                onClick={() => handleDownloadParamsOnly(selectedModel)}
+                className="w-full py-2 px-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-white/80 hover:text-white text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+                <span>Download Parameters First (Save in Cache)</span>
+              </button>
+            )}
 
             {/* Quick Instant Test Option */}
             {status !== 'loading' && selectedModel !== 'SmolLM2-135M-Instruct-q0f16-MLC' && (
