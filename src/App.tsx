@@ -65,13 +65,14 @@ function parseProgressTelemetry(report: InitProgressReport, modelVram: number): 
   const timeElapsed = Math.max(0, Math.round(report.timeElapsed || 0));
 
   let stage: DetailedProgress['stage'] = 'initializing';
-  if (text.includes('Fetching param cache')) {
+  const lower = text.toLowerCase();
+  if (lower.includes('fetching param') || lower.includes('param cache') || lower.includes('download')) {
     stage = 'downloading';
-  } else if (text.includes('Loading model from cache')) {
+  } else if (lower.includes('loading model from cache') || lower.includes('loading model')) {
     stage = 'loading_vram';
-  } else if (text.toLowerCase().includes('wasm') || text.toLowerCase().includes('shader') || text.toLowerCase().includes('pipeline')) {
+  } else if (lower.includes('wasm') || lower.includes('shader') || lower.includes('pipeline') || lower.includes('compil')) {
     stage = 'compiling';
-  } else if (text.includes('Finish') || progressPercent >= 100) {
+  } else if (lower.includes('finish') || progressPercent >= 100) {
     stage = 'ready';
   }
 
@@ -83,15 +84,37 @@ function parseProgressTelemetry(report: InitProgressReport, modelVram: number): 
     totalShards = parseInt(shardMatch[2], 10);
   }
 
+  const totalEstimatedMB = modelVram || 2600;
+
   let mbProcessed = 0;
-  const mbMatch = text.match(/(\d+)\s*MB\s*(?:fetched|loaded)/i);
+  const mbMatch = text.match(/(\d+)\s*MB\s*(?:fetched|loaded|downloaded)/i);
   if (mbMatch) {
     mbProcessed = parseInt(mbMatch[1], 10);
   } else if (report.progress > 0) {
-    mbProcessed = Math.round(report.progress * (modelVram || 2600));
+    mbProcessed = Math.round(report.progress * totalEstimatedMB);
   }
 
-  const totalEstimatedMB = modelVram || 2600;
+  // Calculate percentage of parameters downloaded
+  let paramsPercent = 0;
+  if (stage === 'ready' || stage === 'compiling' || stage === 'loading_vram') {
+    // Parameter shards have already been fully downloaded to local disk/cache
+    paramsPercent = 100;
+  } else if (stage === 'downloading') {
+    // Try explicit percentage string from WebLLM report (e.g. "14% completed")
+    const textPercentMatch = text.match(/(\d+(?:\.\d+)?)\s*%\s*(?:completed|fetched|downloaded)?/i);
+    if (textPercentMatch) {
+      paramsPercent = Math.min(100, Math.max(0, Math.round(parseFloat(textPercentMatch[1]))));
+    } else if (totalShards > 0 && currentShard >= 0) {
+      paramsPercent = Math.min(100, Math.round((currentShard / totalShards) * 100));
+    } else if (mbProcessed > 0 && totalEstimatedMB > 0) {
+      paramsPercent = Math.min(100, Math.round((mbProcessed / totalEstimatedMB) * 100));
+    } else {
+      paramsPercent = progressPercent;
+    }
+  } else {
+    // Initializing
+    paramsPercent = 0;
+  }
 
   let speedMBs = 0;
   if (timeElapsed > 0 && mbProcessed > 0) {
@@ -99,7 +122,7 @@ function parseProgressTelemetry(report: InitProgressReport, modelVram: number): 
   }
 
   let etaSeconds: number | null = null;
-  if (progressPercent > 0 && progressPercent < 100 && speedMBs > 0) {
+  if (paramsPercent > 0 && paramsPercent < 100 && speedMBs > 0) {
     const remainingMB = Math.max(0, totalEstimatedMB - mbProcessed);
     etaSeconds = Math.max(1, Math.round(remainingMB / speedMBs));
   } else if (totalShards > 0 && currentShard > 0 && timeElapsed > 0 && currentShard < totalShards) {
@@ -113,6 +136,7 @@ function parseProgressTelemetry(report: InitProgressReport, modelVram: number): 
   return {
     rawText: text,
     progressPercent,
+    paramsPercent,
     stage,
     currentShard,
     totalShards,
@@ -131,6 +155,7 @@ export default function App() {
   const [detailedProgress, setDetailedProgress] = useState<DetailedProgress>({
     rawText: '',
     progressPercent: 0,
+    paramsPercent: 0,
     stage: 'initializing',
     currentShard: 0,
     totalShards: 0,
@@ -333,6 +358,7 @@ export default function App() {
     setDetailedProgress({
       rawText: 'Initializing WebGPU hardware acceleration...',
       progressPercent: 2,
+      paramsPercent: 0,
       stage: 'initializing',
       currentShard: 0,
       totalShards: 0,
@@ -710,64 +736,103 @@ export default function App() {
 
           {/* Detailed Loading Dashboard */}
           {status === 'loading' && (
-            <div className="space-y-3.5 p-4 rounded-2xl bg-black/50 border border-white/[0.08] shadow-inner animate-in fade-in">
+            <div id="loading-telemetry-dashboard" className="space-y-3.5 p-4 rounded-2xl bg-black/50 border border-white/[0.08] shadow-inner animate-in fade-in">
               {/* Top Progress bar and Percentage */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-medium">
                   <span className="flex items-center gap-2 text-[#a8c7fa]">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     <span>
-                      {detailedProgress.stage === 'downloading' && 'Fetching Model Parameter Shards...'}
+                      {detailedProgress.stage === 'downloading' && (
+                        <>Downloading Parameters: <strong className="text-white font-mono">{detailedProgress.paramsPercent}%</strong></>
+                      )}
                       {detailedProgress.stage === 'loading_vram' && 'Streaming into WebGPU VRAM...'}
                       {detailedProgress.stage === 'compiling' && 'Compiling Shaders & KV Pipeline...'}
                       {detailedProgress.stage === 'ready' && 'Model Ready! Launching...'}
                       {detailedProgress.stage === 'initializing' && 'Initializing WebGPU Hardware...'}
                     </span>
                   </span>
-                  <span className="font-mono text-white text-xs font-semibold">
-                    {detailedProgress.progressPercent}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span 
+                      id="params-downloaded-badge"
+                      className={`px-2.5 py-0.5 rounded-full font-mono text-xs font-bold border transition-all ${
+                        detailedProgress.paramsPercent >= 100 
+                          ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' 
+                          : 'bg-blue-500/20 border-blue-500/30 text-blue-200'
+                      }`}
+                    >
+                      {detailedProgress.paramsPercent}% Downloaded
+                    </span>
+                  </div>
                 </div>
 
-                <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden relative">
+                {/* Progress bar tracking parameter download / pipeline progress */}
+                <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden relative">
                   <div 
+                    id="params-progress-bar"
                     className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-[#a8c7fa] rounded-full transition-all duration-300 relative shadow-lg shadow-blue-500/50"
-                    style={{ width: `${Math.max(3, detailedProgress.progressPercent)}%` }}
+                    style={{ width: `${Math.max(3, detailedProgress.stage === 'downloading' ? detailedProgress.paramsPercent : detailedProgress.progressPercent)}%` }}
                   >
                     <div className="absolute inset-0 bg-white/20 animate-pulse" />
                   </div>
+                </div>
+
+                {/* Parameter Download Sub-meter */}
+                <div className="flex items-center justify-between text-[11px] font-mono text-white/60 px-0.5">
+                  <span className="flex items-center gap-1.5 text-blue-300 font-medium">
+                    <Download className="w-3 h-3 text-blue-400" />
+                    <span>Params Downloaded:</span>
+                    <span className="text-white font-bold">{detailedProgress.paramsPercent}%</span>
+                  </span>
+                  <span className="text-white/40">
+                    {detailedProgress.mbProcessed > 0 
+                      ? `${detailedProgress.mbProcessed} MB / ~${detailedProgress.totalEstimatedMB} MB` 
+                      : `${detailedProgress.totalEstimatedMB} MB model`}
+                  </span>
                 </div>
               </div>
 
               {/* 4-Tile Telemetry Metric Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
-                  <div className="text-[10px] text-white/40 uppercase font-mono">Speed</div>
-                  <div className="text-xs font-semibold text-emerald-300 font-mono">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
+                  <div className="text-[10px] text-blue-300/80 uppercase font-mono tracking-wider font-medium">Params Downloaded</div>
+                  <div className="text-base font-bold text-blue-200 font-mono">
+                    {detailedProgress.paramsPercent}%
+                  </div>
+                  <div className="text-[9px] text-blue-300/60 font-mono truncate">
+                    {detailedProgress.totalShards > 0 
+                      ? `${detailedProgress.currentShard}/${detailedProgress.totalShards} shards` 
+                      : `${detailedProgress.mbProcessed} MB`}
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
+                  <div className="text-[10px] text-white/40 uppercase font-mono tracking-wider">Speed</div>
+                  <div className="text-base font-semibold text-emerald-300 font-mono">
                     {detailedProgress.speedMBs > 0 ? `${detailedProgress.speedMBs} MB/s` : 'VRAM Stream'}
                   </div>
-                </div>
-
-                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
-                  <div className="text-[10px] text-white/40 uppercase font-mono">ETA</div>
-                  <div className="text-xs font-semibold text-amber-300 font-mono">
-                    {detailedProgress.etaSeconds ? `~${detailedProgress.etaSeconds}s` : `${detailedProgress.timeElapsed}s elapsed`}
+                  <div className="text-[9px] text-white/40 font-mono">
+                    {detailedProgress.speedMBs > 0 ? 'Live Transfer' : 'Direct GPU'}
                   </div>
                 </div>
 
-                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
-                  <div className="text-[10px] text-white/40 uppercase font-mono">Shards</div>
-                  <div className="text-xs font-semibold text-white/90 font-mono">
-                    {detailedProgress.totalShards > 0 
-                      ? `${detailedProgress.currentShard}/${detailedProgress.totalShards}`
-                      : 'Syncing'}
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
+                  <div className="text-[10px] text-white/40 uppercase font-mono tracking-wider">ETA</div>
+                  <div className="text-base font-semibold text-amber-300 font-mono">
+                    {detailedProgress.etaSeconds ? `~${detailedProgress.etaSeconds}s` : `${detailedProgress.timeElapsed}s`}
+                  </div>
+                  <div className="text-[9px] text-white/40 font-mono">
+                    {detailedProgress.etaSeconds ? 'Estimated Time' : 'Elapsed'}
                   </div>
                 </div>
 
-                <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
-                  <div className="text-[10px] text-white/40 uppercase font-mono">Processed</div>
-                  <div className="text-xs font-semibold text-indigo-300 font-mono">
-                    {detailedProgress.mbProcessed > 0 ? `${detailedProgress.mbProcessed} MB` : `${detailedProgress.progressPercent}%`}
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
+                  <div className="text-[10px] text-white/40 uppercase font-mono tracking-wider">Data Processed</div>
+                  <div className="text-base font-semibold text-indigo-300 font-mono">
+                    {detailedProgress.mbProcessed > 0 ? `${detailedProgress.mbProcessed} MB` : `${detailedProgress.paramsPercent}%`}
+                  </div>
+                  <div className="text-[9px] text-white/40 font-mono">
+                    of ~{detailedProgress.totalEstimatedMB} MB
                   </div>
                 </div>
               </div>
@@ -800,7 +865,13 @@ export default function App() {
               {status === 'loading' ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Accelerating WebGPU Pipeline...</span>
+                  <span>
+                    {detailedProgress.stage === 'downloading'
+                      ? `Downloading Parameters (${detailedProgress.paramsPercent}%)...`
+                      : detailedProgress.stage === 'loading_vram'
+                        ? `Loading into WebGPU VRAM (${detailedProgress.paramsPercent}% downloaded)...`
+                        : `Compiling Pipeline (${detailedProgress.progressPercent}%)...`}
+                  </span>
                 </>
               ) : isCached ? (
                 <>

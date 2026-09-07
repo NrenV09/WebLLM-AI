@@ -59,6 +59,7 @@ export interface Diagnostics {
 export interface DetailedProgress {
   rawText: string;
   progressPercent: number; // 0 to 100
+  paramsPercent: number; // 0 to 100 percentage of parameters downloaded
   stage: 'initializing' | 'downloading' | 'loading_vram' | 'compiling' | 'ready';
   currentShard: number;
   totalShards: number;
