@@ -841,7 +841,7 @@ export default function App() {
       />
 
       {/* Main View Area: Either ModelSetupView or ChatArea */}
-      {showConfigView || ((!activeSession || messages.length === 0) && status !== 'ready') ? (
+      {showConfigView ? (
         <ModelSetupView
           models={registeredModels}
           selectedModel={selectedModel}
@@ -941,6 +941,9 @@ export default function App() {
             isOnline={isOnline}
             isWorkerActive={executionMode === 'worker'}
             preprocessLatex={preprocessLatex}
+            status={status}
+            isModelLoaded={status === 'ready'}
+            onLoadModel={() => initEngine(selectedModel)}
           />
         </div>
       )}

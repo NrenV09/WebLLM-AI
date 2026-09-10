@@ -32,6 +32,9 @@ interface ChatAreaProps {
   isOnline: boolean;
   isWorkerActive: boolean;
   preprocessLatex: (content: string) => string;
+  status?: 'initial' | 'loading' | 'error' | 'ready' | 'unsupported';
+  isModelLoaded?: boolean;
+  onLoadModel?: () => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -52,7 +55,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   diagnostics,
   isOnline,
   isWorkerActive,
-  preprocessLatex
+  preprocessLatex,
+  status = 'initial',
+  isModelLoaded,
+  onLoadModel
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -131,15 +137,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
       </header>
 
-      {/* Message Stream */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto min-h-0 relative p-3 sm:p-4 md:p-6"
-      >
-        {!hasUserMessages ? (
-          /* iPadOS Liquid Glass Welcome State: "Hi! How can I Help?" */
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 sm:py-20 flex flex-col items-center justify-center min-h-[60vh] text-center">
+      {/* Message Stream or Centered Welcome */}
+      {!hasUserMessages ? (
+        /* iPadOS Liquid Glass Welcome State: Centered text box when starting a new chat */
+        <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto min-h-0 relative">
+          <div className="w-full max-w-2xl sm:max-w-3xl flex flex-col items-center text-center my-auto py-8">
             
             {/* Liquid Glass Orb / Center Icon */}
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl glass-panel flex items-center justify-center mb-6 shadow-2xl relative">
@@ -148,7 +150,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </div>
 
             {/* Requested Text: "Hi! How can I Help?" */}
-            <div className="space-y-3 mb-8">
+            <div className="space-y-2.5 mb-8 sm:mb-10">
               <h1 className="text-3xl sm:text-5xl font-semibold text-white tracking-tight">
                 Hi! How can I Help?
               </h1>
@@ -157,48 +159,67 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               </p>
             </div>
 
-            {/* Subtle Liquid Glass Pill */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card text-xs text-white/60">
-              <span className="w-2 h-2 rounded-full bg-white/80 animate-pulse" />
-              <span>Ready to assist • 100% on-device</span>
+            {/* Centered Text Box for New Chat */}
+            <div className="w-full max-w-2xl sm:max-w-3xl mx-auto">
+              <ChatInput
+                input={input}
+                setInput={setInput}
+                onSend={onSend}
+                onStop={onStop}
+                isGenerating={isTyping}
+                disabled={false}
+                models={models}
+                selectedModel={selectedModel}
+                onSelectModel={onSelectModel}
+                isWorkerActive={isWorkerActive}
+                isOnline={isOnline}
+              />
             </div>
 
           </div>
-        ) : (
-          /* Message List */
-          <div className="max-w-3xl mx-auto flex flex-col pb-8">
-            {messages.map((m, idx) => (
-              <MessageItem
-                key={m.id || idx}
-                message={m}
-                index={idx}
-                isStreaming={isTyping}
-                isLast={idx === messages.length - 1}
-                preprocessLatex={preprocessLatex}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Chat Input Capsule Container */}
-      <div className="px-3 py-3 sm:px-4 sm:py-3.5 pb-4 sm:pb-5 flex-shrink-0 bg-black border-t border-white/[0.08] z-20 shadow-[0_-16px_32px_rgba(0,0,0,0.8)]">
-        <div className="max-w-3xl mx-auto w-full">
-          <ChatInput
-            input={input}
-            setInput={setInput}
-            onSend={onSend}
-            onStop={onStop}
-            isGenerating={isTyping}
-            disabled={false}
-            models={models}
-            selectedModel={selectedModel}
-            onSelectModel={onSelectModel}
-            isWorkerActive={isWorkerActive}
-            isOnline={isOnline}
-          />
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Message Stream */}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto min-h-0 relative p-3 sm:p-4 md:p-6"
+          >
+            <div className="max-w-3xl mx-auto flex flex-col pb-8">
+              {messages.map((m, idx) => (
+                <MessageItem
+                  key={m.id || idx}
+                  message={m}
+                  index={idx}
+                  isStreaming={isTyping}
+                  isLast={idx === messages.length - 1}
+                  preprocessLatex={preprocessLatex}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Docked Chat Input Capsule Container */}
+          <div className="px-3 py-3 sm:px-4 sm:py-3.5 pb-4 sm:pb-5 flex-shrink-0 bg-black border-t border-white/[0.08] z-20 shadow-[0_-16px_32px_rgba(0,0,0,0.8)]">
+            <div className="max-w-3xl mx-auto w-full">
+              <ChatInput
+                input={input}
+                setInput={setInput}
+                onSend={onSend}
+                onStop={onStop}
+                isGenerating={isTyping}
+                disabled={false}
+                models={models}
+                selectedModel={selectedModel}
+                onSelectModel={onSelectModel}
+                isWorkerActive={isWorkerActive}
+                isOnline={isOnline}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 };
