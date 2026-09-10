@@ -29,6 +29,7 @@ interface SidebarProps {
   onRenameSession: (id: string, newTitle: string) => void;
   onOpenSettings: () => void;
   onOpenStorageManager: () => void;
+  onOpenLocalModelImporter?: () => void;
   diagnostics: Diagnostics;
   disabled: boolean;
 }
@@ -44,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRenameSession,
   onOpenSettings,
   onOpenStorageManager,
+  onOpenLocalModelImporter,
   diagnostics,
   disabled
 }) => {
@@ -188,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Container */}
       <aside
         className={`
-          fixed md:relative inset-y-0 left-0 h-full flex-shrink-0 transition-all duration-300 ease-in-out border-r border-white/[0.06] bg-[#12141a]/85 backdrop-blur-2xl flex flex-col justify-between z-40 md:z-20
+          fixed md:relative inset-y-0 left-0 h-full flex-shrink-0 transition-all duration-300 ease-in-out border-r border-white/[0.08] bg-black/95 backdrop-blur-3xl flex flex-col justify-between z-40 md:z-20
           ${isOpen ? 'w-64 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-full md:translate-x-0 overflow-hidden border-none pointer-events-none'}
         `}
       >
@@ -196,30 +198,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Sidebar Top: Header, New Chat, Search */}
           <div className="p-3.5 space-y-3 shrink-0 overflow-hidden">
             <div className="flex items-center justify-between px-1 overflow-hidden">
-              <div className="flex items-center gap-2.5 text-white font-medium text-sm min-w-0 overflow-hidden">
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center shrink-0 shadow-xs">
-                  <Sparkles className="w-3.5 h-3.5 text-[#a8c7fa]" />
+              <div className="flex items-center gap-2 text-white font-medium text-sm min-w-0 overflow-hidden">
+                <div className="w-7 h-7 rounded-xl bg-white/[0.06] border border-white/[0.12] flex items-center justify-center shrink-0">
+                  <Sparkles className="w-3.5 h-3.5 text-white/80" />
                 </div>
-                <span className="tracking-tight text-[15px] whitespace-nowrap overflow-hidden text-ellipsis font-medium">Local AI</span>
+                <span className="tracking-tight text-sm font-semibold text-white truncate">Conversations</span>
               </div>
 
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.06] transition-all duration-200 md:hidden shrink-0 cursor-pointer"
+                className="p-1.5 rounded-xl text-white/50 hover:text-white glass-button md:hidden shrink-0 cursor-pointer"
                 title="Close sidebar"
               >
                 <PanelLeftClose className="w-4 h-4" />
               </button>
             </div>
 
-            {/* + New Chat Button */}
+            {/* + New Chat Glass Button */}
             <button
               onClick={onNewChat}
               disabled={disabled}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/[0.05] hover:bg-white/[0.09] text-white text-sm font-medium border border-white/[0.08] shadow-md transition-all duration-200 cursor-pointer disabled:opacity-50 active:scale-[0.99] overflow-hidden whitespace-nowrap"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-2xl glass-button text-white text-xs font-medium cursor-pointer disabled:opacity-50 active:scale-[0.98] overflow-hidden whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 text-[#a8c7fa] shrink-0" />
-              <span className="truncate">New chat</span>
+              <Plus className="w-4 h-4 text-white shrink-0" />
+              <span className="truncate">New Chat</span>
             </button>
 
             {/* Search Conversations Bar */}
@@ -229,8 +231,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search chats..."
-                className="w-full bg-[#0b0d11]/70 border border-white/[0.06] rounded-xl pl-9 pr-7 py-1.5 text-xs text-white/90 placeholder-white/30 focus:outline-none focus:border-[#a8c7fa]/50 transition-colors whitespace-nowrap overflow-hidden"
+                placeholder="Search..."
+                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-9 pr-7 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-colors whitespace-nowrap overflow-hidden"
               />
               {searchQuery && (
                 <button
@@ -302,7 +304,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             isLongPressTriggeredRef.current = false;
                             return;
                           }
-                          if (!isEditing) onSelectSession(session.id);
+                          if (!isEditing && !disabled) onSelectSession(session.id);
                         }}
                         title={isEditing ? undefined : `"${session.title}" (Press & hold to delete)`}
                         className={`
@@ -404,45 +406,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* Persistent Bottom Storage Card & Actions */}
-          <div className="p-3 border-t border-white/[0.06] space-y-2 shrink-0 bg-[#0e1015]/60 overflow-hidden">
-            {/* Storage Quota Card */}
-            <button
-              onClick={onOpenStorageManager}
-              className="w-full p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] text-left transition-all duration-200 cursor-pointer group overflow-hidden"
-            >
-              <div className="flex items-center justify-between text-[11px] whitespace-nowrap overflow-hidden">
-                <span className="flex items-center gap-1.5 font-medium text-white/80 group-hover:text-white truncate">
-                  <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${diagnostics.storagePersisted ? 'text-emerald-400' : 'text-amber-400'}`} />
-                  <span className="truncate">{diagnostics.storagePersisted ? 'Storage: Persistent' : 'Storage: Auto'}</span>
-                </span>
-                <span className="font-mono text-white/40 text-[10px] shrink-0">
-                  {diagnostics.storageUsageMB !== null ? `${diagnostics.storageUsageMB} MB` : 'Local'}
-                </span>
-              </div>
-              <div className="text-[10px] text-white/40 mt-1 flex items-center justify-between whitespace-nowrap overflow-hidden">
-                <span className="truncate">IndexedDB & Cache</span>
-                <span className="text-[#a8c7fa] group-hover:underline shrink-0">Manage &rarr;</span>
-              </div>
-            </button>
-
-            {/* Quick Settings & Storage Buttons */}
-            <div className="grid grid-cols-2 gap-1.5 pt-1 overflow-hidden">
+          {/* Persistent Bottom Actions */}
+          <div className="p-3 border-t border-white/[0.08] shrink-0 bg-black/60 overflow-hidden">
+            {/* Quick Settings, Storage & Import Glass Buttons */}
+            <div className="grid grid-cols-3 gap-1.5 overflow-hidden">
               <button
+                type="button"
                 onClick={onOpenSettings}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white/70 hover:text-white hover:bg-white/[0.05] text-xs font-medium transition-all duration-200 cursor-pointer border border-white/[0.06] whitespace-nowrap overflow-hidden active:scale-95"
+                className="flex items-center justify-center gap-1 px-1.5 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
+                title="Settings"
               >
                 <Settings className="w-3.5 h-3.5 text-white/60 shrink-0" />
                 <span className="truncate">Settings</span>
               </button>
 
               <button
+                type="button"
                 onClick={onOpenStorageManager}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-white/70 hover:text-white hover:bg-white/[0.05] text-xs font-medium transition-all duration-200 cursor-pointer border border-white/[0.06] whitespace-nowrap overflow-hidden active:scale-95"
+                className="flex items-center justify-center gap-1 px-1.5 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
+                title="Storage & Cache"
               >
-                <Database className="w-3.5 h-3.5 text-white/60 shrink-0" />
+                <HardDrive className="w-3.5 h-3.5 text-white/60 shrink-0" />
                 <span className="truncate">Storage</span>
               </button>
+
+              {onOpenLocalModelImporter && (
+                <button
+                  type="button"
+                  onClick={onOpenLocalModelImporter}
+                  className="flex items-center justify-center gap-1 px-1.5 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
+                  title="Import Model from Files"
+                >
+                  <Upload className="w-3.5 h-3.5 text-white/60 shrink-0" />
+                  <span className="truncate">Import</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -452,22 +450,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {sessionToDelete && (
         <div
           id="delete-chat-modal-backdrop"
-          className="fixed inset-0 bg-black/75 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-50 flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => setSessionToDelete(null)}
         >
           <div
             id="delete-chat-modal"
-            className="bg-[#16181f] border border-white/[0.1] rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+            className="glass-panel border border-white/[0.12] rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/25 text-rose-400 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-2xl bg-white/[0.06] border border-white/[0.12] text-white flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-white" />
               </div>
               <div className="space-y-1 min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-white tracking-tight">Delete conversation?</h3>
-                <p className="text-xs text-white/60 leading-relaxed break-words">
-                  Are you sure you want to delete <span className="text-white font-medium">"{sessionToDelete.title}"</span>? This will permanently remove this chat and all its messages.
+                <p className="text-xs text-white/50 leading-relaxed break-words">
+                  Are you sure you want to delete <span className="text-white font-medium">"{sessionToDelete.title}"</span>? This will permanently remove this chat.
                 </p>
               </div>
             </div>
@@ -477,7 +475,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 id="cancel-delete-chat-btn"
                 type="button"
                 onClick={() => setSessionToDelete(null)}
-                className="px-3.5 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white glass-button cursor-pointer"
               >
                 Cancel
               </button>
@@ -489,7 +487,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setSessionToDelete(null);
                   onDeleteSession(id);
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors shadow-md shadow-rose-900/30 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-white/[0.15] hover:bg-white/[0.22] border border-white/[0.25] transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Chat</span>

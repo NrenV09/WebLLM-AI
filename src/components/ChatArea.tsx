@@ -7,12 +7,7 @@ import {
   HardDrive, 
   Wifi, 
   WifiOff, 
-  Cpu, 
-  ShieldCheck,
-  Code2,
-  Calculator,
-  Terminal,
-  Compass
+  Lightbulb
 } from 'lucide-react';
 import { ChatMessage, ModelInfo, Diagnostics } from '../types';
 import { MessageItem } from './MessageItem';
@@ -32,34 +27,12 @@ interface ChatAreaProps {
   onSelectModel: (modelId: string) => void;
   onOpenSettings: () => void;
   onOpenStorage: () => void;
+  onOpenInfoGuide?: () => void;
   diagnostics: Diagnostics;
   isOnline: boolean;
   isWorkerActive: boolean;
   preprocessLatex: (content: string) => string;
 }
-
-const WELCOME_STARTERS = [
-  {
-    icon: Calculator,
-    title: "Math & Derivation",
-    prompt: "Solve the integral $\\int \\frac{1 + \\sin(x)\\cos(x)}{\\sin(x)\\cos(x)} dx$ step-by-step with clear reasoning and KaTeX equations."
-  },
-  {
-    icon: Code2,
-    title: "Algorithm in TypeScript",
-    prompt: "Write a high-performance LRU Cache in TypeScript with O(1) get and put operations, including complete type definitions."
-  },
-  {
-    icon: Compass,
-    title: "Quantum Physics",
-    prompt: "Explain quantum superposition and quantum entanglement in intuitive terms with real-world analogies."
-  },
-  {
-    icon: Terminal,
-    title: "Data Analysis",
-    prompt: "Write a complete Python script using pandas and matplotlib to clean a dataset and plot trends with error handling."
-  }
-];
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   messages,
@@ -75,6 +48,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSelectModel,
   onOpenSettings,
   onOpenStorage,
+  onOpenInfoGuide,
   diagnostics,
   isOnline,
   isWorkerActive,
@@ -102,64 +76,57 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const hasUserMessages = messages.some(m => m.role === 'user');
 
   return (
-    <main className="flex-1 flex flex-col h-full min-w-0 relative overflow-hidden bg-transparent">
-      {/* Top Header Bar */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-white/[0.06] flex-shrink-0 bg-[#0e1015]/60 backdrop-blur-xl z-10">
+    <main className="flex-1 flex flex-col h-full min-w-0 relative overflow-hidden bg-black">
+      {/* Top Floating Liquid Glass Header Bar */}
+      <header className="h-14 flex items-center justify-between px-3 sm:px-4 border-b border-white/[0.08] flex-shrink-0 bg-black/60 backdrop-blur-2xl z-10">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
-            onClick={onToggleSidebar}
-            className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] transition-all duration-200 cursor-pointer shrink-0 active:scale-95"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSidebar();
+            }}
+            className="p-2 rounded-xl text-white/60 hover:text-white glass-button cursor-pointer shrink-0 active:scale-95"
             title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
-            {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeft className="w-5 h-5" />}
+            {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
           </button>
 
-          {/* Model Name Badge */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md text-xs font-medium text-white/90 truncate shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#a8c7fa] shrink-0" />
+          {/* Model Name Glass Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.1] backdrop-blur-xl text-xs font-medium text-white/90 truncate shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-white/70 shrink-0" />
             <span className="truncate">{currentModel?.name}</span>
           </div>
         </div>
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Offline / Online Pill */}
-          <div
-            title={isOnline ? "Online (Model runs 100% on device)" : "Operating 100% offline from local cache"}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border backdrop-blur-md ${
-              !isOnline
-                ? 'bg-amber-950/40 text-amber-300 border-amber-800/40'
-                : 'bg-white/[0.04] text-white/70 border-white/[0.06]'
-            }`}
-          >
-            {!isOnline ? (
-              <>
-                <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="whitespace-nowrap">Offline Mode</span>
-              </>
-            ) : (
-              <>
-                <Wifi className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="hidden sm:inline whitespace-nowrap">Offline Ready</span>
-              </>
-            )}
-          </div>
+          {onOpenInfoGuide && (
+            <button
+              onClick={onOpenInfoGuide}
+              className="p-2 rounded-xl glass-button text-white/70 hover:text-white cursor-pointer shrink-0"
+              title="Information & Button Functionality"
+            >
+              <Lightbulb className="w-4 h-4 text-white" />
+            </button>
+          )}
 
           <button
             onClick={onOpenStorage}
-            className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] transition-all duration-200 cursor-pointer border border-white/[0.06] hidden sm:flex items-center gap-1.5 text-xs shrink-0 active:scale-95"
+            className="p-2 rounded-xl glass-button text-white/70 hover:text-white cursor-pointer hidden sm:flex items-center gap-1.5 text-xs shrink-0"
             title="Manage offline storage & cache"
           >
-            <HardDrive className="w-4 h-4 text-white/60" />
+            <HardDrive className="w-4 h-4 text-white/70" />
             <span className="hidden md:inline">Storage</span>
           </button>
 
           <button
             onClick={onOpenSettings}
-            className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.06] transition-all duration-200 cursor-pointer border border-white/[0.06] shrink-0 active:scale-95"
+            className="p-2 rounded-xl glass-button text-white/70 hover:text-white cursor-pointer shrink-0"
             title="Generation settings"
           >
-            <Settings className="w-4 h-4 text-white/60" />
+            <Settings className="w-4 h-4 text-white/70" />
           </button>
         </div>
       </header>
@@ -171,47 +138,31 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         className="flex-1 overflow-y-auto min-h-0 relative p-3 sm:p-4 md:p-6"
       >
         {!hasUserMessages ? (
-          /* Gemini-Style Welcome State */
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col justify-center min-h-[60vh]">
-            <div className="space-y-2 mb-8 text-left">
-              <h2 className="text-3xl sm:text-5xl font-medium bg-gradient-to-r from-[#a8c7fa] via-[#c58af9] to-[#f28b82] bg-clip-text text-transparent tracking-tight">
-                Hello
-              </h2>
-              <p className="text-xl sm:text-2xl text-white/50 font-normal">
-                How can I help you today?
+          /* iPadOS Liquid Glass Welcome State: "Hi! How can I Help?" */
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 sm:py-20 flex flex-col items-center justify-center min-h-[60vh] text-center">
+            
+            {/* Liquid Glass Orb / Center Icon */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl glass-panel flex items-center justify-center mb-6 shadow-2xl relative">
+              <Sparkles className="w-8 h-8 text-white/90" />
+              <div className="absolute inset-0 rounded-3xl bg-white/[0.04] pointer-events-none" />
+            </div>
+
+            {/* Requested Text: "Hi! How can I Help?" */}
+            <div className="space-y-3 mb-8">
+              <h1 className="text-3xl sm:text-5xl font-semibold text-white tracking-tight">
+                Hi! How can I Help?
+              </h1>
+              <p className="text-sm sm:text-base text-white/40 font-normal max-w-md mx-auto">
+                On-device private inference accelerated by WebGPU
               </p>
             </div>
 
-            {/* Quick Starter Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-8">
-              {WELCOME_STARTERS.map((item, idx) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => onSend(item.prompt)}
-                    disabled={isTyping}
-                    className="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/[0.14] text-left transition-all duration-200 group cursor-pointer shadow-lg shadow-black/20 flex flex-col justify-between h-28 active:scale-[0.99] backdrop-blur-md"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-[#a8c7fa] shrink-0" />
-                      <span className="text-xs font-semibold text-white/90 group-hover:text-white truncate">
-                        {item.title}
-                      </span>
-                    </div>
-                    <span className="text-[12px] text-white/50 group-hover:text-white/75 line-clamp-2 leading-relaxed">
-                      {item.prompt}
-                    </span>
-                  </button>
-                );
-              })}
+            {/* Subtle Liquid Glass Pill */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card text-xs text-white/60">
+              <span className="w-2 h-2 rounded-full bg-white/80 animate-pulse" />
+              <span>Ready to assist • 100% on-device</span>
             </div>
 
-            {/* Privacy Guarantee Pill */}
-            <div className="flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm text-xs text-white/40">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>100% Private WebGPU Inference • Zero data leaves your device</span>
-            </div>
           </div>
         ) : (
           /* Message List */
@@ -231,7 +182,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Chat Input Capsule Container */}
-      <div className="px-3 py-3 sm:px-4 sm:py-3.5 pb-4 sm:pb-5 flex-shrink-0 bg-[#0b0d11] border-t border-white/[0.05] z-20 shadow-[0_-12px_30px_rgba(0,0,0,0.6)]">
+      <div className="px-3 py-3 sm:px-4 sm:py-3.5 pb-4 sm:pb-5 flex-shrink-0 bg-black border-t border-white/[0.08] z-20 shadow-[0_-16px_32px_rgba(0,0,0,0.8)]">
         <div className="max-w-3xl mx-auto w-full">
           <ChatInput
             input={input}

@@ -124,36 +124,32 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
   const percentUsed = quotaMB > 0 ? Math.min(100, Math.round((usedMB / quotaMB) * 100)) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="w-full max-w-xl bg-[#12141a]/95 border border-white/[0.08] rounded-3xl shadow-2xl backdrop-blur-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-in fade-in duration-150">
+      <div className="w-full max-w-xl glass-panel rounded-3xl overflow-hidden flex flex-col max-h-[90vh] border border-white/[0.12] shadow-2xl">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between bg-black/40">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+            <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.12] flex items-center justify-center text-white">
               <HardDrive className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-medium text-white">Storage & Offline Persistence</h2>
+              <h2 className="text-base font-semibold text-white tracking-tight">Storage & Offline Persistence</h2>
               <p className="text-xs text-white/50">Manage local IndexedDB database, model weights, and quotas</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl text-white/40 hover:text-white glass-button cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-sm text-white/80">
+        <div className="p-6 overflow-y-auto space-y-5 flex-1 text-sm text-white/80">
           {/* Status feedback banner */}
           {statusMsg && (
-            <div className={`p-3 rounded-2xl border text-xs flex items-center justify-between ${
-              statusMsg.type === 'success' ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-300' :
-              statusMsg.type === 'error' ? 'bg-rose-950/40 border-rose-800/40 text-rose-300' :
-              'bg-blue-950/40 border-blue-800/40 text-blue-300'
-            }`}>
+            <div className="p-3 rounded-2xl border text-xs flex items-center justify-between bg-white/[0.04] border-white/[0.12] text-white">
               <span>{statusMsg.text}</span>
               <button onClick={() => setStatusMsg(null)} className="opacity-60 hover:opacity-100 ml-2">
                 <X className="w-3.5 h-3.5" />
@@ -162,12 +158,12 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
           )}
 
           {/* Storage Quota Breakdown Card */}
-          <div className="p-4 rounded-2xl bg-[#0b0d11]/80 border border-white/[0.06] space-y-3">
+          <div className="p-4 rounded-2xl glass-card space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white/40 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">
                 Storage Utilization
               </span>
-              <span className="font-mono text-xs text-[#a8c7fa]">
+              <span className="font-mono text-xs text-white">
                 {usedMB > 1024 ? `${(usedMB / 1024).toFixed(2)} GB` : `${usedMB} MB`} used
                 {quotaMB > 0 && ` / ${(quotaMB / 1024).toFixed(0)} GB quota`}
               </span>
@@ -176,7 +172,7 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
             {/* Progress bar */}
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-[#a8c7fa] transition-all duration-500 rounded-full"
+                className="h-full bg-white transition-all duration-500 rounded-full"
                 style={{ width: `${Math.max(3, percentUsed)}%` }}
               />
             </div>
@@ -194,20 +190,16 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
           </div>
 
           {/* Persistence & Eviction Protection */}
-          <div className="p-4 rounded-2xl bg-[#0b0d11]/80 border border-white/[0.06] flex items-center justify-between">
+          <div className="p-4 rounded-2xl glass-card flex items-center justify-between">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2 font-medium text-xs text-white">
-                {diagnostics.storagePersisted ? (
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <ShieldAlert className="w-4 h-4 text-amber-400" />
-                )}
+                <ShieldCheck className="w-4 h-4 text-white/80" />
                 <span>Browser Eviction Protection</span>
               </div>
               <p className="text-[11px] text-white/40 max-w-sm">
                 {diagnostics.storagePersisted
-                  ? 'Guaranteed persistent mode. The browser will never delete your cached model weights or chats.'
-                  : 'Currently auto-managed. Enable persistence to prevent the browser from automatically clearing cached models.'}
+                  ? 'Persistent mode active. Browser will never delete your cached model weights or chats.'
+                  : 'Enable persistence to prevent the browser from automatically clearing cached models.'}
               </p>
             </div>
 
@@ -215,7 +207,7 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
               <button
                 onClick={handlePersist}
                 disabled={isPersisting}
-                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+                className="px-3.5 py-1.5 rounded-xl glass-button-primary text-white text-xs font-semibold cursor-pointer disabled:opacity-50 active:scale-95"
               >
                 {isPersisting ? 'Enabling...' : 'Enable'}
               </button>
@@ -224,20 +216,20 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
 
           {/* Backup & Restore (JSON) */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-white/40 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider">
               Backup & Export
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={handleExport}
-                className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] text-xs text-white/90 font-medium transition-colors cursor-pointer active:scale-[0.98]"
+                className="flex items-center justify-center gap-2 p-3 rounded-2xl glass-button text-xs text-white font-medium cursor-pointer active:scale-[0.98]"
               >
-                <Download className="w-4 h-4 text-[#a8c7fa]" />
+                <Download className="w-4 h-4 text-white/70" />
                 <span>Export Chats (JSON)</span>
               </button>
 
-              <label className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] text-xs text-white/90 font-medium transition-colors cursor-pointer active:scale-[0.98]">
-                <Upload className="w-4 h-4 text-[#c58af9]" />
+              <label className="flex items-center justify-center gap-2 p-3 rounded-2xl glass-button text-xs text-white font-medium cursor-pointer active:scale-[0.98]">
+                <Upload className="w-4 h-4 text-white/70" />
                 <span>Import Backup</span>
                 <input
                   type="file"
@@ -252,24 +244,24 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
 
           {/* Danger Zone */}
           <div className="space-y-2 pt-2">
-            <label className="block text-xs font-semibold text-rose-400/80 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-white/40 uppercase tracking-wider">
               Maintenance & Cleanup
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={handleClearModels}
                 disabled={isClearing}
-                className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-rose-950/20 hover:bg-rose-950/40 border border-rose-800/30 text-xs text-rose-300 transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+                className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.1] text-xs text-white/80 transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4 text-white/60" />
                 <span>{isClearing ? 'Clearing...' : 'Clear Model Weights'}</span>
               </button>
 
               <button
                 onClick={handleClearAllChats}
-                className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-rose-950/20 hover:bg-rose-950/40 border border-rose-800/30 text-xs text-rose-300 transition-colors cursor-pointer active:scale-[0.98]"
+                className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.1] text-xs text-white/80 transition-colors cursor-pointer active:scale-[0.98]"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4 text-white/60" />
                 <span>Clear All Chats</span>
               </button>
             </div>
@@ -277,13 +269,13 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#0e1015]/80 border-t border-white/[0.06] flex items-center justify-between">
+        <div className="px-6 py-4 bg-black/50 border-t border-white/[0.08] flex items-center justify-between">
           <span className="text-[11px] text-white/40">
             Service Worker: {diagnostics.serviceWorkerActive ? 'Active (Offline Ready)' : 'Active'}
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-white text-xs font-medium border border-white/[0.08] transition-colors cursor-pointer active:scale-95"
+            className="px-5 py-2 rounded-xl glass-button text-white text-xs font-medium cursor-pointer active:scale-95"
           >
             Done
           </button>

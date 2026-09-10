@@ -37,7 +37,9 @@ export interface AISettings {
   repetition_penalty: number;
   max_tokens: number;
   systemPrompt: string;
-  contextWindowSize?: number;
+  contextWindowSize?: number; // 2048, 3072, 4096, 8192, 12000
+  phi4AntiLooping?: boolean;
+  ipadOptimization?: boolean;
 }
 
 export interface Diagnostics {

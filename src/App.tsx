@@ -45,6 +45,10 @@ import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { SettingsModal } from './components/SettingsModal';
 import { StorageManagerModal } from './components/StorageManagerModal';
+import { ModelSetupView } from './components/ModelSetupView';
+import { LocalModelImporterModal } from './components/LocalModelImporterModal';
+import { InfoGuideModal } from './components/InfoGuideModal';
+import { buildPrunedChatHistory, detectTextRepetition, trimRepetitionLoop } from './utils/chatHelpers';
 
 registerCustomModels(prebuiltAppConfig);
 
@@ -176,6 +180,7 @@ export default function App() {
     stepName: 'Download Parameters'
   });
   const [errorMsg, setErrorMsg] = useState('');
+  const [registeredModels, setRegisteredModels] = useState<ModelInfo[]>(MODELS);
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [isCached, setIsCached] = useState(false);
   const [executionMode, setExecutionMode] = useState<'worker' | 'main'>('worker');
@@ -185,9 +190,12 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>('');
 
-  // Modals state
+  // Modals & view state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
+  const [isLocalModelImporterOpen, setIsLocalModelImporterOpen] = useState(false);
+  const [isInfoGuideOpen, setIsInfoGuideOpen] = useState(false);
+  const [showConfigView, setShowConfigView] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_SETTINGS);
 
   // Online & storage state
@@ -584,7 +592,18 @@ export default function App() {
   // Send Message / Generation Handler
   const handleSend = async (customPrompt?: string) => {
     const textToSend = (customPrompt || input).trim();
-    if (!textToSend || isTyping || !engineRef.current || status !== 'ready') return;
+    if (!textToSend || isTyping) return;
+
+    // If engine is not ready, initialize first
+    if (status !== 'ready' || !engineRef.current) {
+      try {
+        await initEngine(selectedModel);
+      } catch (e) {
+        console.error('Failed to auto-init engine:', e);
+        return;
+      }
+      if (!engineRef.current) return;
+    }
 
     setInput('');
     setIsTyping(true);
@@ -621,13 +640,13 @@ export default function App() {
     setSessions(updatedSessionsList);
     await saveSession(updatedSession);
 
-    // Build chat context for model with system prompt
-    const chatHistory = [
-      { role: 'system', content: aiSettings.systemPrompt },
-      ...newMessages
-        .filter(m => m.content && m !== initialAssistantMsg)
-        .map(m => ({ role: m.role, content: m.content }))
-    ];
+    // Build pruned chat context for model with sliding window budget
+    const chatHistory = buildPrunedChatHistory(
+      aiSettings.systemPrompt,
+      newMessages.slice(0, -1),
+      aiSettings.contextWindowSize || 3072,
+      aiSettings.max_tokens || 4096
+    );
 
     abortControllerRef.current = new AbortController();
     const startTime = performance.now();
@@ -635,13 +654,28 @@ export default function App() {
     let tokenCount = 0;
     let accumulatedText = '';
 
+    const isPhiModel = selectedModel.toLowerCase().includes('phi');
+    const repetitionPenalty = (aiSettings.phi4AntiLooping !== false || isPhiModel)
+      ? Math.max(aiSettings.repetition_penalty || 1.08, 1.18)
+      : (aiSettings.repetition_penalty || 1.08);
+
     try {
       const completion = await engineRef.current.chat.completions.create({
         messages: chatHistory as any,
         temperature: aiSettings.temperature,
         top_p: aiSettings.top_p,
-        repetition_penalty: aiSettings.repetition_penalty,
-        max_tokens: aiSettings.max_tokens,
+        repetition_penalty: repetitionPenalty,
+        max_tokens: aiSettings.max_tokens || 4096,
+        stop: [
+          "<|endoftext|>",
+          "<|end|>",
+          "<|im_end|>",
+          "<|system|>",
+          "<|user|>",
+          "<|assistant|>",
+          "<|end_of_turn|>",
+          "<|eot_id|>"
+        ],
         stream: true
       });
 
@@ -657,6 +691,15 @@ export default function App() {
           }
           accumulatedText += delta;
           tokenCount++;
+
+          // Phi-4 Mini Repetition Loop Guard
+          if (aiSettings.phi4AntiLooping !== false && detectTextRepetition(accumulatedText)) {
+            accumulatedText = trimRepetitionLoop(accumulatedText);
+            try {
+              await engineRef.current.interruptGenerate();
+            } catch {}
+            break;
+          }
 
           setSessions(prev => {
             return prev.map(s => {
@@ -702,16 +745,43 @@ export default function App() {
       await saveSession(finalSession);
     } catch (err: any) {
       console.warn('Generation completed or stopped:', err);
+      // If no text was accumulated, clean up the empty assistant message so chat doesn't get corrupted
+      if (!accumulatedText.trim()) {
+        const cleanedSession: ChatSession = {
+          ...updatedSession,
+          messages: newMessages.filter(m => m !== initialAssistantMsg),
+          updatedAt: Date.now()
+        };
+        setSessions(prev => prev.map(s => s.id === cleanedSession.id ? cleanedSession : s));
+        await saveSession(cleanedSession);
+      }
+      // Reset engine KV-cache to avoid corruption on next prompt
+      try {
+        await engineRef.current?.resetChat();
+      } catch {}
     } finally {
       setIsTyping(false);
       abortControllerRef.current = null;
     }
   };
 
-  const handleStop = () => {
+  const handleStop = async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    if (engineRef.current) {
+      try {
+        await engineRef.current.interruptGenerate();
+      } catch (e) {
+        console.warn('interruptGenerate error:', e);
+      }
+      try {
+        await engineRef.current.resetChat();
+      } catch (e) {
+        console.warn('resetChat error:', e);
+      }
+    }
+    setIsTyping(false);
   };
 
   // Hardware Unsupported Fallback Screen
@@ -744,458 +814,136 @@ export default function App() {
     );
   }
 
-  // Initial Model Launcher & High-Performance Telemetry Loading Screen
-  if (status === 'initial' || status === 'loading' || status === 'error') {
-    const modelObj = MODELS.find(m => m.id === selectedModel) || MODELS[0];
-    return (
-      <div className="fixed inset-0 flex h-full w-full items-center justify-center bg-[#0b0d11] text-white p-4 font-sans overflow-hidden">
-        {/* Ambient radial lighting glow */}
-        <div className="absolute w-[600px] h-[600px] bg-gradient-to-tr from-blue-600/10 via-indigo-600/10 to-purple-600/10 blur-[120px] rounded-full pointer-events-none -top-20 -left-20" />
-        <div className="absolute w-[400px] h-[400px] bg-gradient-to-tr from-indigo-600/10 to-pink-600/10 blur-[100px] rounded-full pointer-events-none -bottom-20 -right-20" />
-
-        <div className="max-w-lg w-full p-6 sm:p-8 border border-white/[0.08] bg-[#12141a]/85 backdrop-blur-2xl rounded-3xl relative overflow-hidden shadow-2xl z-10 space-y-5">
-          {/* Header & Network Badge */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 p-[1px] shadow-lg shadow-indigo-500/20">
-                <div className="w-full h-full rounded-2xl bg-[#0b0d11] flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-[#a8c7fa]" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-white tracking-tight">Local AI WebGPU</h1>
-                <p className="text-xs text-white/50">High-performance on-device intelligence</p>
-              </div>
-            </div>
-
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border backdrop-blur-md ${
-              isOnline 
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40' 
-                : 'bg-amber-950/40 text-amber-300 border-amber-800/40'
-            }`}>
-              {isOnline ? (
-                <>
-                  <Wifi className="w-3 h-3 text-emerald-400" />
-                  <span>Online</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3 text-amber-400" />
-                  <span>Offline Ready</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Model Selection Dropdown & Info */}
-          <div className="space-y-2.5">
-            <label className="block text-xs font-semibold text-white/40 uppercase tracking-wider">
-              Selected LLM Architecture (&lt; 3GB VRAM)
-            </label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={status === 'loading'}
-              className="w-full bg-[#0b0d11]/80 border border-white/[0.08] text-white rounded-2xl px-4 py-3 text-xs sm:text-sm focus:outline-none focus:border-[#a8c7fa]/50 transition-colors cursor-pointer"
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.sizeLabel || `${m.vramMB} MB`})
-                </option>
-              ))}
-            </select>
-
-            {modelObj.description && (
-              <p className="text-[11px] text-white/50 leading-relaxed px-1">
-                {modelObj.description}
-              </p>
-            )}
-          </div>
-
-          {/* Hardware Acceleration & Context Window Selection */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-white/40 uppercase tracking-wider">
-                Acceleration Profile (KV-Cache)
-              </span>
-              <span className="text-[11px] text-[#a8c7fa]">
-                {aiSettings.contextWindowSize || 3072} Tokens
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { size: 2048, label: '⚡ Turbo (2K)', hint: '35% Faster' },
-                { size: 3072, label: '⚖️ Balanced', hint: 'Default 3K' },
-                { size: 4096, label: '🧠 Deep (4K)', hint: 'Full Length' }
-              ].map((opt) => {
-                const active = (aiSettings.contextWindowSize || 3072) === opt.size;
-                return (
-                  <button
-                    key={opt.size}
-                    disabled={status === 'loading'}
-                    onClick={() => {
-                      const updated = { ...aiSettings, contextWindowSize: opt.size };
-                      setAiSettings(updated);
-                      saveAISettings(updated);
-                    }}
-                    className={`py-2 px-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                      active
-                        ? 'bg-blue-500/20 border-[#a8c7fa]/60 text-white font-medium shadow-sm'
-                        : 'bg-white/[0.02] border-white/[0.06] text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    <div className="text-xs">{opt.label}</div>
-                    <div className="text-[9px] text-white/40">{opt.hint}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Two-Step Execution Stepper: Downloads Params First, Then Configures Pipeline */}
-          <div className="p-3.5 bg-black/40 border border-white/[0.08] rounded-2xl space-y-2.5">
-            <div className="flex items-center justify-between text-xs font-semibold text-white/50 uppercase tracking-wider">
-              <span>Execution Pipeline</span>
-              <span className="text-[#a8c7fa] font-mono text-[11px] normal-case">Download Params First → Configure Pipeline</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* Step 1 Card */}
-              <div className={`p-3 rounded-xl border transition-all ${
-                status === 'loading' && detailedProgress.step === 1
-                  ? 'bg-blue-500/15 border-blue-500/40 shadow-sm shadow-blue-500/20'
-                  : isCached || (status === 'loading' && detailedProgress.step === 2)
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-                    : 'bg-white/[0.02] border-white/[0.06] text-white/60'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium">
-                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                      isCached || (status === 'loading' && detailedProgress.step === 2)
-                        ? 'bg-emerald-500 text-black'
-                        : status === 'loading' && detailedProgress.step === 1
-                          ? 'bg-blue-500 text-white animate-pulse'
-                          : 'bg-white/10 text-white/70'
-                    }`}>
-                      {isCached || (status === 'loading' && detailedProgress.step === 2) ? '✓' : '1'}
-                    </span>
-                    <span className="text-white font-semibold">1. Download Params</span>
-                  </div>
-                  {isCached ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
-                      100%
-                    </span>
-                  ) : status === 'loading' && detailedProgress.step === 1 ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold">
-                      {detailedProgress.paramsPercent}%
-                    </span>
-                  ) : null}
-                </div>
-                <div className="text-[10px] text-white/40 pt-1 font-mono">
-                  {isCached 
-                    ? 'Weights cached in storage' 
-                    : status === 'loading' && detailedProgress.step === 1
-                      ? `Downloading shards (${detailedProgress.paramsPercent}%)`
-                      : `~${modelObj.vramMB} MB parameter shards`}
-                </div>
-              </div>
-
-              {/* Step 2 Card */}
-              <div className={`p-3 rounded-xl border transition-all ${
-                status === 'loading' && detailedProgress.step === 2
-                  ? 'bg-indigo-500/15 border-indigo-500/40 shadow-sm shadow-indigo-500/20'
-                  : isCached
-                    ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-200'
-                    : 'bg-white/[0.02] border-white/[0.06] text-white/60'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-medium">
-                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                      status === 'loading' && detailedProgress.step === 2
-                        ? 'bg-indigo-500 text-white animate-pulse'
-                        : isCached
-                          ? 'bg-indigo-400 text-black'
-                          : 'bg-white/10 text-white/70'
-                    }`}>
-                      2
-                    </span>
-                    <span className="text-white font-semibold">2. Configure Pipeline</span>
-                  </div>
-                  {status === 'loading' && detailedProgress.step === 2 ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold">
-                      Configuring...
-                    </span>
-                  ) : isCached ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold">
-                      Ready
-                    </span>
-                  ) : null}
-                </div>
-                <div className="text-[10px] text-white/40 pt-1 font-mono">
-                  {status === 'loading' && detailedProgress.step === 2
-                    ? 'Streaming VRAM & compiling shaders'
-                    : isCached
-                      ? 'Ready to configure instant WebGPU pipeline'
-                      : 'Configures once parameters are downloaded'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Detailed Loading Dashboard */}
-          {status === 'loading' && (
-            <div id="loading-telemetry-dashboard" className="space-y-3.5 p-4 rounded-2xl bg-black/50 border border-white/[0.08] shadow-inner animate-in fade-in">
-              {/* Step indicator and percentage badge */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="flex items-center gap-2 text-[#a8c7fa]">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>
-                      {detailedProgress.step === 1 ? (
-                        <>Step 1 of 2: Downloading Parameters (<strong className="text-white font-mono">{detailedProgress.paramsPercent}%</strong>)</>
-                      ) : (
-                        <>Step 2 of 2: Configuring WebGPU Pipeline & VRAM...</>
-                      )}
-                    </span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span 
-                      id="params-downloaded-badge"
-                      className={`px-2.5 py-0.5 rounded-full font-mono text-xs font-bold border transition-all ${
-                        detailedProgress.paramsPercent >= 100 
-                          ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' 
-                          : 'bg-blue-500/20 border-blue-500/30 text-blue-200'
-                      }`}
-                    >
-                      {detailedProgress.paramsPercent}% Params Downloaded
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress bar tracking parameter download / pipeline progress */}
-                <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden relative">
-                  <div 
-                    id="params-progress-bar"
-                    className="h-full bg-gradient-to-r from-blue-500 via-indigo-400 to-[#a8c7fa] rounded-full transition-all duration-300 relative shadow-lg shadow-blue-500/50"
-                    style={{ width: `${Math.max(3, detailedProgress.step === 1 ? detailedProgress.paramsPercent : detailedProgress.progressPercent)}%` }}
-                  >
-                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                  </div>
-                </div>
-
-                {/* Parameter Download Sub-meter */}
-                <div className="flex items-center justify-between text-[11px] font-mono text-white/60 px-0.5">
-                  <span className="flex items-center gap-1.5 text-blue-300 font-medium">
-                    <Download className="w-3 h-3 text-blue-400" />
-                    <span>Phase:</span>
-                    <span className="text-white font-semibold">
-                      {detailedProgress.step === 1 ? '1. Parameter Download' : '2. Pipeline Configuration'}
-                    </span>
-                  </span>
-                  <span className="text-white/40">
-                    {detailedProgress.mbProcessed > 0 
-                      ? `${detailedProgress.mbProcessed} MB / ~${detailedProgress.totalEstimatedMB} MB` 
-                      : `${detailedProgress.totalEstimatedMB} MB model`}
-                  </span>
-                </div>
-              </div>
-
-              {/* 4-Tile Telemetry Metric Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
-                  <div className="text-[10px] text-blue-300/80 uppercase font-mono tracking-wider font-medium">Params Downloaded</div>
-                  <div className="text-base font-bold text-blue-200 font-mono">
-                    {detailedProgress.paramsPercent}%
-                  </div>
-                  <div className="text-[9px] text-blue-300/60 font-mono truncate">
-                    {detailedProgress.totalShards > 0 
-                      ? `${detailedProgress.currentShard}/${detailedProgress.totalShards} shards` 
-                      : `${detailedProgress.mbProcessed} MB`}
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
-                  <div className="text-[10px] text-white/40 uppercase font-mono tracking-wider">Speed</div>
-                  <div className="text-base font-semibold text-emerald-300 font-mono">
-                    {detailedProgress.speedMBs > 0 ? `${detailedProgress.speedMBs} MB/s` : 'VRAM Stream'}
-                  </div>
-                  <div className="text-[9px] text-white/40 font-mono">
-                    {detailedProgress.speedMBs > 0 ? 'Live Transfer' : 'Direct GPU'}
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
-                  <div className="text-[10px] text-white/40 uppercase font-mono tracking-wider">ETA</div>
-                  <div className="text-base font-semibold text-amber-300 font-mono">
-                    {detailedProgress.etaSeconds ? `~${detailedProgress.etaSeconds}s` : `${detailedProgress.timeElapsed}s`}
-                  </div>
-                  <div className="text-[9px] text-white/40 font-mono">
-                    {detailedProgress.etaSeconds ? 'Estimated Time' : 'Elapsed'}
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05] text-center">
-                  <div className="text-[10px] text-white/40 uppercase font-mono tracking-wider">Data Processed</div>
-                  <div className="text-base font-semibold text-indigo-300 font-mono">
-                    {detailedProgress.mbProcessed > 0 ? `${detailedProgress.mbProcessed} MB` : `${detailedProgress.paramsPercent}%`}
-                  </div>
-                  <div className="text-[9px] text-white/40 font-mono">
-                    of ~{detailedProgress.totalEstimatedMB} MB
-                  </div>
-                </div>
-              </div>
-
-              {/* Raw Telemetry Text & Cancel Button */}
-              <div className="flex items-center justify-between pt-0.5 gap-2">
-                <p className="text-[11px] font-mono text-white/40 truncate leading-none">
-                  {detailedProgress.rawText || progress}
-                </p>
-                <button
-                  onClick={cancelInit}
-                  className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 whitespace-nowrap"
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Cancel</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {status === 'error' && (
-            <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-800/40 text-xs text-rose-300 space-y-1">
-              <div className="flex items-center gap-1.5 font-medium text-rose-200">
-                <AlertTriangle className="w-4 h-4 text-rose-400" />
-                <span>Initialization Error</span>
-              </div>
-              <p className="text-white/60 text-[11px]">{errorMsg}</p>
-            </div>
-          )}
-
-          {/* Launch / Action Buttons */}
-          <div className="space-y-2.5 pt-1">
-            <button
-              onClick={() => initEngine(selectedModel)}
-              disabled={status === 'loading'}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-400 hover:to-indigo-400 text-white font-semibold text-sm shadow-lg shadow-blue-500/25 transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
-            >
-              {status === 'loading' ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>
-                    {detailedProgress.step === 1
-                      ? `Step 1/2: Downloading Parameters (${detailedProgress.paramsPercent}%)...`
-                      : `Step 2/2: Configuring Pipeline (${detailedProgress.progressPercent}%)...`}
-                  </span>
-                </>
-              ) : isCached ? (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Configure WebGPU Pipeline (Instant VRAM)</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  <span>Download Params & Configure Pipeline</span>
-                </>
-              )}
-            </button>
-
-            {/* Pre-Download Params Option (If Not Cached) */}
-            {status !== 'loading' && !isCached && (
-              <button
-                onClick={() => handleDownloadParamsOnly(selectedModel)}
-                className="w-full py-2 px-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-white/80 hover:text-white text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <HardDrive className="w-3.5 h-3.5 text-blue-400" />
-                <span>Download Parameters First (Save in Cache)</span>
-              </button>
-            )}
-
-            {/* Quick Instant Test Option */}
-            {status !== 'loading' && selectedModel !== 'SmolLM2-135M-Instruct-q0f16-MLC' && (
-              <button
-                onClick={() => {
-                  setSelectedModel('SmolLM2-135M-Instruct-q0f16-MLC');
-                  initEngine('SmolLM2-135M-Instruct-q0f16-MLC');
-                }}
-                className="w-full py-2 px-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-white/70 hover:text-white text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span>Instant 2-Second WebGPU Test (SmolLM2 135M • 150MB)</span>
-              </button>
-            )}
-
-            {/* Offline & Hardware Protection Status */}
-            <div className="p-3 bg-white/[0.02] rounded-2xl border border-white/[0.06] space-y-1.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-white/80 font-medium">
-                  <ShieldCheck className={`w-3.5 h-3.5 ${diagnostics.storagePersisted ? 'text-emerald-400' : 'text-amber-400'}`} />
-                  <span>Storage Persistence</span>
-                </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
-                  diagnostics.storagePersisted ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
-                }`}>
-                  {diagnostics.storagePersisted ? 'Persistent' : 'Auto Cache'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-white/40 pt-0.5">
-                <span>{isCached ? 'Model cached locally • 100% offline ready' : 'Downloaded once and saved to cache'}</span>
-                {isCached && (
-                  <button
-                    onClick={handleClearModelCache}
-                    className="text-[#f28b82] hover:underline cursor-pointer"
-                  >
-                    Clear Cache
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Active Chat UI (Matching Ultra-Premium Dark Glassmorphic Aesthetics)
+  // Unified Liquid Glass Layout: Sidebar is ALWAYS accessible so user can navigate chats, settings, storage, and models
   return (
-    <div className="fixed inset-0 flex h-full w-full overflow-hidden bg-[#0b0d11] text-[#e6e8ec] font-sans antialiased">
-      {/* Sidebar */}
+    <div className="fixed inset-0 flex h-full w-full overflow-hidden bg-black text-[#e6e8ec] font-sans antialiased select-none">
+      {/* Sidebar is ALWAYS available */}
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         sessions={sessions}
         activeSessionId={activeSessionId}
-        onSelectSession={handleSelectSession}
-        onNewChat={() => handleCreateNewChat()}
+        onSelectSession={(id) => {
+          handleSelectSession(id);
+          setShowConfigView(false);
+        }}
+        onNewChat={() => {
+          handleCreateNewChat();
+          setShowConfigView(false);
+        }}
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenStorageManager={() => setIsStorageModalOpen(true)}
+        onOpenLocalModelImporter={() => setIsLocalModelImporterOpen(true)}
         diagnostics={diagnostics}
         disabled={isTyping}
       />
 
-      {/* Main Chat Area */}
-      <ChatArea
-        messages={messages}
-        isTyping={isTyping}
-        input={input}
-        setInput={setInput}
-        onSend={handleSend}
-        onStop={handleStop}
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        models={MODELS}
-        selectedModel={selectedModel}
-        onSelectModel={handleModelSelect}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenStorage={() => setIsStorageModalOpen(true)}
-        diagnostics={diagnostics}
-        isOnline={isOnline}
-        isWorkerActive={executionMode === 'worker'}
-        preprocessLatex={preprocessLatex}
-      />
+      {/* Main View Area: Either ModelSetupView or ChatArea */}
+      {showConfigView || ((!activeSession || messages.length === 0) && status !== 'ready') ? (
+        <ModelSetupView
+          models={registeredModels}
+          selectedModel={selectedModel}
+          onSelectModel={handleModelSelect}
+          status={status}
+          onInitEngine={initEngine}
+          onCancelInit={cancelInit}
+          progress={progress}
+          detailedProgress={detailedProgress}
+          errorMsg={errorMsg}
+          isCached={isCached}
+          aiSettings={aiSettings}
+          onUpdateAISettings={async (s) => {
+            setAiSettings(s);
+            await saveAISettings(s);
+          }}
+          onOpenLocalModelImporter={() => setIsLocalModelImporterOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          isSidebarOpen={isSidebarOpen}
+          hasPastMessages={messages.length > 0}
+          onViewMessages={() => setShowConfigView(false)}
+        />
+      ) : (
+        <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0 relative">
+          {/* Subtle Liquid Glass Status Capsule if model is not yet loaded into VRAM */}
+          {status !== 'ready' && (
+            <div className="bg-black/90 backdrop-blur-2xl border-b border-white/[0.08] px-3 sm:px-4 py-2 flex items-center justify-between text-xs z-30">
+              <div className="flex items-center gap-2 text-white/70">
+                {status === 'loading' ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                    <span>
+                      {detailedProgress.step === 1
+                        ? `Downloading Parameters (${detailedProgress.paramsPercent}%)`
+                        : `Compiling Shaders (${detailedProgress.progressPercent}%)`}
+                    </span>
+                  </>
+                ) : status === 'error' ? (
+                  <>
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <span className="text-rose-300">Model not active in WebGPU memory</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-white/60" />
+                    <span>Model not loaded into WebGPU VRAM</span>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {status === 'loading' ? (
+                  <button
+                    type="button"
+                    onClick={cancelInit}
+                    className="text-rose-400 hover:text-rose-300 px-2 py-1 rounded-lg bg-rose-500/10 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => initEngine(selectedModel)}
+                    className="glass-button px-2.5 py-1 rounded-lg text-white font-medium cursor-pointer"
+                  >
+                    {status === 'error' ? 'Retry Load' : 'Load Model'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowConfigView(true)}
+                  className="text-white/50 hover:text-white px-2 py-1 cursor-pointer"
+                >
+                  Configure
+                </button>
+              </div>
+            </div>
+          )}
+
+          <ChatArea
+            messages={messages}
+            isTyping={isTyping}
+            input={input}
+            setInput={setInput}
+            onSend={handleSend}
+            onStop={handleStop}
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            models={registeredModels}
+            selectedModel={selectedModel}
+            onSelectModel={handleModelSelect}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenStorage={() => setIsStorageModalOpen(true)}
+            onOpenInfoGuide={() => setIsInfoGuideOpen(true)}
+            diagnostics={diagnostics}
+            isOnline={isOnline}
+            isWorkerActive={executionMode === 'worker'}
+            preprocessLatex={preprocessLatex}
+          />
+        </div>
+      )}
 
       {/* Settings Modal */}
       <SettingsModal
@@ -1218,6 +966,24 @@ export default function App() {
         onRequestPersistence={requestPersistentStorage}
         onClearModelCache={handleClearModelCache}
         onReloadSessions={handleReloadSessions}
+      />
+
+      {/* Local Model Importer Modal (From Files & Local Storage) */}
+      <LocalModelImporterModal
+        isOpen={isLocalModelImporterOpen}
+        onClose={() => setIsLocalModelImporterOpen(false)}
+        onModelImported={(newModel) => {
+          setRegisteredModels(prev => [newModel, ...prev]);
+          setSelectedModel(newModel.id);
+          setIsLocalModelImporterOpen(false);
+          setShowConfigView(true);
+        }}
+      />
+
+      {/* Info & Functionality Guide Modal */}
+      <InfoGuideModal
+        isOpen={isInfoGuideOpen}
+        onClose={() => setIsInfoGuideOpen(false)}
       />
     </div>
   );

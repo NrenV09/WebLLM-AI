@@ -11,10 +11,30 @@ const LOCAL_STORAGE_SETTINGS_KEY = 'webgpu_local_settings_v1';
 export const DEFAULT_SETTINGS: AISettings = {
   temperature: 0.6,
   top_p: 0.9,
-  repetition_penalty: 1.05,
+  repetition_penalty: 1.08,
   max_tokens: 4096,
+  contextWindowSize: 3072,
+  phi4AntiLooping: true,
+  ipadOptimization: true,
   systemPrompt: 'You are a helpful, brilliant, and precise AI assistant. When analyzing complex problems, performing multi-step reasoning, or writing mathematical derivations or code, wrap your internal reasoning in <think>...</think> tags before providing the final answer.\n\nSTRICT LATEX FORMATTING RULES:\n1. Inline math: $...$ (e.g. $E = mc^2$)\n2. Display block math: $$...$$ on separate lines.'
 };
+
+export function sanitizeSession(session: ChatSession): ChatSession {
+  if (!session || !Array.isArray(session.messages)) return session;
+  const cleanedMessages = [...session.messages];
+  // Remove any trailing empty assistant messages from aborted/corrupted completions
+  while (
+    cleanedMessages.length > 0 &&
+    cleanedMessages[cleanedMessages.length - 1].role === 'assistant' &&
+    !cleanedMessages[cleanedMessages.length - 1].content?.trim()
+  ) {
+    cleanedMessages.pop();
+  }
+  return {
+    ...session,
+    messages: cleanedMessages
+  };
+}
 
 // Open or initialize IndexedDB
 function openDB(): Promise<IDBDatabase> {
@@ -80,13 +100,14 @@ export async function loadAllSessions(): Promise<ChatSession[]> {
       request.onsuccess = () => {
         const result = request.result as ChatSession[];
         if (result && result.length > 0) {
-          result.sort((a, b) => b.updatedAt - a.updatedAt);
+          const sanitized = result.map(sanitizeSession);
+          sanitized.sort((a, b) => b.updatedAt - a.updatedAt);
           // Sync backup to localStorage
-          saveToLocalStorageBackup(result);
-          resolve(result);
+          saveToLocalStorageBackup(sanitized);
+          resolve(sanitized);
         } else {
           // Check localStorage for previous sessions
-          const backup = loadFromLocalStorageBackup();
+          const backup = loadFromLocalStorageBackup().map(sanitizeSession);
           if (backup.length > 0) {
             saveAllSessions(backup).catch(() => {});
             resolve(backup);
@@ -97,12 +118,12 @@ export async function loadAllSessions(): Promise<ChatSession[]> {
       };
 
       request.onerror = () => {
-        resolve(loadFromLocalStorageBackup());
+        resolve(loadFromLocalStorageBackup().map(sanitizeSession));
       };
     });
   } catch (e) {
     console.warn('IndexedDB read failed, falling back to localStorage:', e);
-    return loadFromLocalStorageBackup();
+    return loadFromLocalStorageBackup().map(sanitizeSession);
   }
 }
 

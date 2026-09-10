@@ -2,6 +2,7 @@ import {StrictMode, Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import 'katex/dist/katex.min.css';
 import { registerServiceWorker } from './utils/offlineManager';
 
 // Register offline caching service worker

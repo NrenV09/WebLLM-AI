@@ -3,27 +3,27 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-gemini-bg: #0b0d11;
-  --color-gemini-sidebar: #0e1015;
-  --color-gemini-surface: #14171f;
-  --color-gemini-card: #181b24;
-  --color-gemini-card-hover: #1f232e;
-  --color-gemini-border: rgba(255, 255, 255, 0.07);
-  --color-gemini-border-hover: rgba(255, 255, 255, 0.15);
-  --color-gemini-blue: #a8c7fa;
-  --color-gemini-blue-bright: #7cacf8;
-  --color-gemini-purple: #c58af9;
-  --color-gemini-pink: #f28b82;
-  --color-text-primary: #e6e8ec;
-  --color-text-secondary: #9aa0a6;
-  --color-text-dim: #5f6368;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-gemini-bg: #000000;
+  --color-gemini-sidebar: #050505;
+  --color-gemini-surface: #0a0a0a;
+  --color-gemini-card: #0d0d0d;
+  --color-gemini-card-hover: #141414;
+  --color-gemini-border: rgba(255, 255, 255, 0.08);
+  --color-gemini-border-hover: rgba(255, 255, 255, 0.16);
+  --color-gemini-blue: #ffffff;
+  --color-gemini-blue-bright: #ffffff;
+  --color-gemini-purple: #ffffff;
+  --color-gemini-pink: #ffffff;
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #86868b;
+  --color-text-dim: #424245;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 html, body {
-  background-color: #0b0d11;
-  color: #e6e8ec;
+  background-color: #000000;
+  color: #f5f5f7;
   font-family: var(--font-sans);
   margin: 0;
   padding: 0;
@@ -31,9 +31,6 @@ html, body {
   height: 100%;
   height: 100dvh;
   width: 100%;
-  background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(66, 133, 244, 0.07), transparent 70%),
-    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(197, 138, 249, 0.04), transparent 60%);
   background-attachment: fixed;
 }
 
@@ -42,6 +39,66 @@ html, body {
   height: 100dvh;
   width: 100%;
   overflow: hidden;
+  background-color: #000000;
+}
+
+/* iPadOS Liquid Glass Utility Classes */
+.glass-panel {
+  background-color: rgba(12, 12, 14, 0.65);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.55), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.glass-card {
+  background-color: rgba(20, 20, 24, 0.45);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.glass-button {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.18);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.glass-button:active {
+  background-color: rgba(255, 255, 255, 0.16);
+  transform: scale(0.98);
+}
+
+.glass-button-primary {
+  background-color: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.5), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.45);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-button-primary:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.38);
+  box-shadow: 0 10px 28px 0 rgba(0, 0, 0, 0.6), inset 0 1px 2px 0 rgba(255, 255, 255, 0.6);
+}
+
+.glass-button-primary:active {
+  background-color: rgba(255, 255, 255, 0.28);
+  transform: scale(0.98);
 }
 
 /* Custom ultra-thin minimalist scrollbar */
@@ -53,17 +110,17 @@ html, body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.28);
 }
 
-/* Markdown typography matching Gemini Assistant output */
+/* Markdown typography matching liquid glass assistant output */
 .markdown-body {
-  @apply text-[#e6e8ec] text-[15px] leading-[1.68];
+  @apply text-[#f5f5f7] text-[15px] leading-[1.68];
 }
 
 .markdown-body p {
@@ -103,19 +160,19 @@ html, body {
 }
 
 .markdown-body blockquote {
-  @apply border-l-2 border-[#a8c7fa] pl-4 py-1.5 my-3 text-[#9aa0a6] italic bg-white/[0.03] backdrop-blur-xs rounded-r-xl;
+  @apply border-l-2 border-white/40 pl-4 py-1.5 my-3 text-white/70 italic bg-white/[0.03] backdrop-blur-xs rounded-r-xl;
 }
 
 .markdown-body table {
-  @apply w-full my-4 border-collapse border border-white/10 rounded-xl overflow-hidden text-sm bg-black/20 backdrop-blur-xs;
+  @apply w-full my-4 border-collapse border border-white/10 rounded-xl overflow-hidden text-sm bg-black/40 backdrop-blur-xs;
 }
 
 .markdown-body th {
-  @apply bg-[#14171f]/80 px-4 py-2.5 text-left font-medium text-[#a8c7fa] border border-white/10;
+  @apply bg-white/[0.06] px-4 py-2.5 text-left font-medium text-white border border-white/10;
 }
 
 .markdown-body td {
-  @apply px-4 py-2 text-[#e6e8ec] border border-white/10 bg-[#0e1015]/40;
+  @apply px-4 py-2 text-[#f5f5f7] border border-white/10 bg-black/30;
 }
 
 .markdown-body hr {
@@ -128,7 +185,20 @@ html, body {
 }
 
 .katex {
-  @apply text-[#e6e8ec];
+  @apply text-[#f5f5f7];
+}
+
+/* Ensure KaTeX MathML is visually hidden so formula isn't duplicated in plain text */
+.katex .katex-mathml {
+  display: none !important;
+  position: absolute !important;
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  height: 1px !important;
+  width: 1px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
 }
 
 /* Press and hold animation for chat deletion */
