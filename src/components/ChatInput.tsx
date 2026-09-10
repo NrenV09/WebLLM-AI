@@ -80,26 +80,27 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             className="w-full bg-transparent text-[#e6e8ec] px-3 py-1.5 focus:outline-none resize-none max-h-48 min-h-[44px] overflow-y-auto text-[15px] placeholder-white/35 leading-relaxed font-sans"
           />
 
-          {/* Action Row inside capsule */}
-          <div className="flex items-center justify-between pt-1 px-1">
-            {/* Model Selector Dropdown Pill */}
+          {/* Action Row inside capsule: Model Switcher right beside Send Prompt Button */}
+          <div className="flex items-center justify-end gap-2 pt-1 px-1">
+            {/* Model Selector Dropdown Pill (Right beside Send Button) */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
+                id="model-switcher-btn"
                 onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                 disabled={isGenerating}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-xs font-medium text-white/90 hover:text-white border border-white/[0.08] transition-all duration-200 cursor-pointer disabled:opacity-50 active:scale-95"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-xs font-medium text-white/90 hover:text-white border border-white/[0.08] transition-all duration-200 cursor-pointer disabled:opacity-50 active:scale-95"
                 title="Select local model"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#a8c7fa]" />
-                <span className="max-w-[140px] sm:max-w-[200px] truncate">{currentModel?.name || selectedModel}</span>
+                <Sparkles className="w-3.5 h-3.5 text-[#a8c7fa] shrink-0" />
+                <span className="max-w-[130px] sm:max-w-[190px] truncate">{currentModel?.name || selectedModel}</span>
                 <span className="text-[10px] text-white/40 font-mono hidden sm:inline">{currentModel?.vramMB}MB</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-white/40 transition-transform duration-200 ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-white/40 transition-transform duration-200 shrink-0 ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Model Menu Dropdown */}
               {isModelDropdownOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-72 bg-[#12141a]/95 border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden py-1.5 z-50 backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="absolute bottom-full right-0 mb-2 w-72 bg-[#12141a]/95 border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden py-1.5 z-50 backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
                   <div className="px-3.5 py-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/[0.06] flex items-center justify-between">
                     <span>Local Models (WebGPU)</span>
                     <span className="text-emerald-400 font-mono text-[10px]">0 API calls</span>
@@ -133,33 +134,33 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               )}
             </div>
 
-            {/* Right Action: Dynamic Morphing Send / Stop Button */}
-            <div className="flex items-center gap-2">
-              {isGenerating ? (
-                <button
-                  type="button"
-                  onClick={onStop}
-                  className="flex items-center justify-center w-9 h-9 rounded-full bg-rose-500/90 hover:bg-rose-500 text-white transition-all duration-200 active:scale-90 cursor-pointer shadow-lg shadow-rose-500/25"
-                  title="Stop generating"
-                >
-                  <Square className="w-3.5 h-3.5 fill-white" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onSend()}
-                  disabled={!input.trim() || disabled}
-                  className={`flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 cursor-pointer ${
-                    input.trim() && !disabled
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/25 text-white hover:from-blue-400 hover:to-indigo-400 active:scale-95'
-                      : 'bg-white/[0.05] text-white/30 border border-white/[0.05] cursor-not-allowed opacity-60'
-                  }`}
-                  title="Send message (Enter)"
-                >
-                  <Send className="w-4 h-4 ml-0.5" />
-                </button>
-              )}
-            </div>
+            {/* Dynamic Morphing Send / Stop Button */}
+            {isGenerating ? (
+              <button
+                type="button"
+                id="stop-prompt-btn"
+                onClick={onStop}
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-rose-500/90 hover:bg-rose-500 text-white transition-all duration-200 active:scale-90 cursor-pointer shadow-lg shadow-rose-500/25 shrink-0"
+                title="Stop generating"
+              >
+                <Square className="w-3.5 h-3.5 fill-white" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                id="send-prompt-btn"
+                onClick={() => onSend()}
+                disabled={!input.trim() || disabled}
+                className={`flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 cursor-pointer shrink-0 ${
+                  input.trim() && !disabled
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/25 text-white hover:from-blue-400 hover:to-indigo-400 active:scale-95'
+                    : 'bg-white/[0.05] text-white/30 border border-white/[0.05] cursor-not-allowed opacity-60'
+                }`}
+                title="Send message (Enter)"
+              >
+                <Send className="w-4 h-4 ml-0.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>

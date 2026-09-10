@@ -48,6 +48,7 @@ import { StorageManagerModal } from './components/StorageManagerModal';
 import { ModelSetupView } from './components/ModelSetupView';
 import { LocalModelImporterModal } from './components/LocalModelImporterModal';
 import { InfoGuideModal } from './components/InfoGuideModal';
+import { PdfExportModal } from './components/PdfExportModal';
 import { buildPrunedChatHistory, detectTextRepetition, trimRepetitionLoop } from './utils/chatHelpers';
 
 registerCustomModels(prebuiltAppConfig);
@@ -195,6 +196,7 @@ export default function App() {
   const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
   const [isLocalModelImporterOpen, setIsLocalModelImporterOpen] = useState(false);
   const [isInfoGuideOpen, setIsInfoGuideOpen] = useState(false);
+  const [sessionToExportPdf, setSessionToExportPdf] = useState<ChatSession | null>(null);
   const [showConfigView, setShowConfigView] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_SETTINGS);
 
@@ -833,6 +835,7 @@ export default function App() {
         }}
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
+        onExportPdf={(session) => setSessionToExportPdf(session)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenStorageManager={() => setIsStorageModalOpen(true)}
         onOpenLocalModelImporter={() => setIsLocalModelImporterOpen(true)}
@@ -987,6 +990,14 @@ export default function App() {
       <InfoGuideModal
         isOpen={isInfoGuideOpen}
         onClose={() => setIsInfoGuideOpen(false)}
+      />
+
+      {/* PDF Export Modal with LaTeX Rendering */}
+      <PdfExportModal
+        isOpen={!!sessionToExportPdf}
+        onClose={() => setSessionToExportPdf(null)}
+        session={sessionToExportPdf}
+        preprocessLatex={preprocessLatex}
       />
     </div>
   );

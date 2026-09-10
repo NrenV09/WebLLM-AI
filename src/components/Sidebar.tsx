@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -14,7 +14,9 @@ import {
   Upload, 
   PanelLeftClose, 
   Sparkles,
-  Database
+  Database,
+  MoreVertical,
+  FileDown
 } from 'lucide-react';
 import { ChatSession, Diagnostics } from '../types';
 
@@ -27,6 +29,7 @@ interface SidebarProps {
   onNewChat: () => void;
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, newTitle: string) => void;
+  onExportPdf: (session: ChatSession) => void;
   onOpenSettings: () => void;
   onOpenStorageManager: () => void;
   onOpenLocalModelImporter?: () => void;
@@ -43,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewChat,
   onDeleteSession,
   onRenameSession,
+  onExportPdf,
   onOpenSettings,
   onOpenStorageManager,
   onOpenLocalModelImporter,
@@ -53,70 +57,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
-  const [holdingSessionId, setHoldingSessionId] = useState<string | null>(null);
-
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isLongPressTriggeredRef = useRef<boolean>(false);
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-
-  const HOLD_DURATION_MS = 500;
-
-  const startHold = (session: ChatSession, clientX: number, clientY: number) => {
-    if (editingId) return;
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-    }
-    isLongPressTriggeredRef.current = false;
-    touchStartPosRef.current = { x: clientX, y: clientY };
-    setHoldingSessionId(session.id);
-
-    holdTimerRef.current = setTimeout(() => {
-      isLongPressTriggeredRef.current = true;
-      setHoldingSessionId(null);
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate(40);
-        } catch {}
-      }
-      setSessionToDelete(session);
-    }, HOLD_DURATION_MS);
-  };
-
-  const cancelHold = () => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    setHoldingSessionId(null);
-    touchStartPosRef.current = null;
-  };
-
-  const handlePointerMove = (clientX: number, clientY: number) => {
-    if (!touchStartPosRef.current || !holdTimerRef.current) return;
-    const dx = Math.abs(clientX - touchStartPosRef.current.x);
-    const dy = Math.abs(clientY - touchStartPosRef.current.y);
-    if (dx > 10 || dy > 10) {
-      cancelHold();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-      }
-    };
-  }, []);
+  const [contextMenu, setContextMenu] = useState<{
+    session: ChatSession;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && sessionToDelete) {
-        setSessionToDelete(null);
+      if (e.key === 'Escape') {
+        if (contextMenu) setContextMenu(null);
+        if (sessionToDelete) setSessionToDelete(null);
       }
     };
+    const handleDismiss = () => {
+      if (contextMenu) setContextMenu(null);
+    };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sessionToDelete]);
+    window.addEventListener('click', handleDismiss);
+    window.addEventListener('scroll', handleDismiss, true);
+    window.addEventListener('resize', handleDismiss);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleDismiss);
+      window.removeEventListener('scroll', handleDismiss, true);
+      window.removeEventListener('resize', handleDismiss);
+    };
+  }, [contextMenu, sessionToDelete]);
 
   // Group conversations by date
   const groupedSessions = useMemo(() => {
@@ -158,8 +125,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return Object.entries(groups).filter(([_, items]) => items.length > 0);
   }, [sessions, searchQuery]);
 
-  const handleStartRename = (session: ChatSession, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleStartRename = (session: ChatSession, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setEditingId(session.id);
     setEditTitle(session.title);
   };
@@ -260,60 +227,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {items.map((session) => {
                     const isActive = session.id === activeSessionId;
                     const isEditing = session.id === editingId;
-                    const isHolding = session.id === holdingSessionId;
 
                     return (
                       <div
                         key={session.id}
                         id={`chat-session-item-${session.id}`}
-                        onTouchStart={(e) => {
-                          if (isEditing) return;
-                          const touch = e.touches[0];
-                          startHold(session, touch.clientX, touch.clientY);
-                        }}
-                        onTouchMove={(e) => {
-                          const touch = e.touches[0];
-                          handlePointerMove(touch.clientX, touch.clientY);
-                        }}
-                        onTouchEnd={(e) => {
-                          cancelHold();
-                          if (isLongPressTriggeredRef.current) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }
-                        }}
-                        onTouchCancel={cancelHold}
-                        onMouseDown={(e) => {
-                          if (isEditing || e.button !== 0) return;
-                          startHold(session, e.clientX, e.clientY);
-                        }}
-                        onMouseMove={(e) => {
-                          handlePointerMove(e.clientX, e.clientY);
-                        }}
-                        onMouseUp={cancelHold}
-                        onMouseLeave={cancelHold}
                         onContextMenu={(e) => {
                           e.preventDefault();
-                          cancelHold();
-                          setSessionToDelete(session);
+                          e.stopPropagation();
+                          setContextMenu({
+                            session,
+                            x: e.clientX,
+                            y: e.clientY
+                          });
                         }}
-                        onClick={(e) => {
-                          if (isLongPressTriggeredRef.current) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            isLongPressTriggeredRef.current = false;
-                            return;
-                          }
+                        onClick={() => {
                           if (!isEditing && !disabled) onSelectSession(session.id);
                         }}
-                        title={isEditing ? undefined : `"${session.title}" (Press & hold to delete)`}
+                        title={isEditing ? undefined : session.title}
                         className={`
                           group relative flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all duration-200 cursor-pointer overflow-hidden select-none
-                          ${isHolding 
-                            ? 'bg-rose-500/15 border border-rose-500/40 text-white scale-[0.98]' 
-                            : isActive 
-                              ? 'bg-white/[0.08] text-white font-medium border border-white/[0.08] shadow-xs' 
-                              : 'text-white/70 hover:bg-white/[0.04] hover:text-white'
+                          ${isActive 
+                            ? 'bg-white/[0.08] text-white font-medium border border-white/[0.08] shadow-xs' 
+                            : 'text-white/70 hover:bg-white/[0.04] hover:text-white'
                           }
                         `}
                       >
@@ -346,49 +282,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ) : (
                           <>
                             <div className="flex items-center gap-2.5 truncate flex-1 min-w-0 pr-1 overflow-hidden">
-                              <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isHolding ? 'text-rose-400 opacity-90' : 'opacity-60'}`} />
+                              <MessageSquare className="w-3.5 h-3.5 shrink-0 opacity-60" />
                               <span className="truncate whitespace-nowrap">{session.title}</span>
                             </div>
 
-                            {/* While holding: indicator */}
-                            {isHolding ? (
-                              <div className="flex items-center gap-1 text-[10px] text-rose-300 font-medium shrink-0 animate-pulse">
-                                <Trash2 className="w-3 h-3 text-rose-400" />
-                                <span>Hold to delete...</span>
-                              </div>
-                            ) : (
-                              /* Hover action buttons */
-                              <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
-                                <button
-                                  onClick={(e) => handleStartRename(session, e)}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onTouchStart={(e) => e.stopPropagation()}
-                                  className="p-1 rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                                  title="Rename chat"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSessionToDelete(session);
-                                  }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  onTouchStart={(e) => e.stopPropagation()}
-                                  className="p-1 rounded-md text-white/40 hover:text-[#f28b82] hover:bg-[#f28b82]/10 transition-colors cursor-pointer"
-                                  title="Delete chat (or press & hold)"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            )}
-
-                            {/* Press and hold progress bar */}
-                            {isHolding && (
-                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500/30 overflow-hidden rounded-b-xl pointer-events-none">
-                                <div className="h-full bg-gradient-to-r from-rose-500 to-red-400 animate-hold-progress" />
-                              </div>
-                            )}
+                            {/* Dropdown 3-dots icon button */}
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                id={`chat-dropdown-btn-${session.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setContextMenu(prev => (prev?.session.id === session.id ? null : {
+                                    session,
+                                    x: rect.right - 180,
+                                    y: rect.bottom + 4
+                                  }));
+                                }}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setContextMenu({
+                                    session,
+                                    x: e.clientX,
+                                    y: e.clientY
+                                  });
+                                }}
+                                className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
+                                title="Chat options (or right-click)"
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </>
                         )}
                       </div>
@@ -400,8 +326,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {groupedSessions.length > 0 && (
               <div className="pt-2 pb-1 px-3 text-[11px] text-white/30 text-center flex items-center justify-center gap-1.5 select-none">
-                <Trash2 className="w-3 h-3 text-white/25" />
-                <span>Tip: Press &amp; hold any chat to delete</span>
+                <span>Click ︙ or right-click to export PDF or delete</span>
               </div>
             )}
           </div>
@@ -446,7 +371,84 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </aside>
 
-      {/* Delete Confirmation Modal triggered by Press & Hold or Delete button */}
+      {/* Chat Session Context / Dropdown Menu */}
+      {contextMenu && (
+        <>
+          <div 
+            className="fixed inset-0 z-[60] bg-transparent"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu(null);
+            }}
+          />
+          <div
+            id="chat-context-menu"
+            style={{
+              top: `${Math.min(Math.max(10, contextMenu.y), (typeof window !== 'undefined' ? window.innerHeight : 800) - 160)}px`,
+              left: `${Math.min(Math.max(10, contextMenu.x), (typeof window !== 'undefined' ? window.innerWidth : 1000) - 220)}px`
+            }}
+            className="fixed z-[70] w-52 bg-[#12141a]/95 border border-white/[0.12] rounded-2xl shadow-2xl backdrop-blur-2xl py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/[0.06] truncate">
+              {contextMenu.session.title}
+            </div>
+
+            {/* Save chat as PDF */}
+            <button
+              type="button"
+              id="menu-save-pdf-btn"
+              onClick={() => {
+                const s = contextMenu.session;
+                setContextMenu(null);
+                onExportPdf(s);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-white/90 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer text-left"
+            >
+              <FileDown className="w-4 h-4 text-[#a8c7fa] shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-medium">Save chat as PDF</span>
+                <span className="text-[10px] text-white/40">Preserves LaTeX math</span>
+              </div>
+            </button>
+
+            {/* Rename */}
+            <button
+              type="button"
+              id="menu-rename-btn"
+              onClick={() => {
+                const s = contextMenu.session;
+                setContextMenu(null);
+                handleStartRename(s);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-white/90 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer text-left"
+            >
+              <Edit3 className="w-4 h-4 text-white/60 shrink-0" />
+              <span>Rename chat</span>
+            </button>
+
+            <div className="my-1 border-t border-white/[0.06]" />
+
+            {/* Delete */}
+            <button
+              type="button"
+              id="menu-delete-btn"
+              onClick={() => {
+                const s = contextMenu.session;
+                setContextMenu(null);
+                setSessionToDelete(s);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-rose-300 hover:text-rose-200 hover:bg-rose-500/15 transition-colors cursor-pointer text-left"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="font-medium">Delete chat</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Delete Confirmation Modal triggered by Delete button in menu */}
       {sessionToDelete && (
         <div
           id="delete-chat-modal-backdrop"
