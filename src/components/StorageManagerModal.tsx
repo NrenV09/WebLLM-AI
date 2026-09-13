@@ -11,9 +11,10 @@ import {
   Check, 
   AlertTriangle,
   Database,
-  Cpu
+  Cpu,
+  Activity
 } from 'lucide-react';
-import { Diagnostics, ChatSession } from '../types';
+import { Diagnostics, ChatSession, VramLiveStats } from '../types';
 import { exportChatsAsJSON, importChatsFromJSON, clearAllSessions, saveAllSessions } from '../storage';
 
 interface StorageManagerModalProps {
@@ -21,6 +22,8 @@ interface StorageManagerModalProps {
   onClose: () => void;
   diagnostics: Diagnostics;
   sessions: ChatSession[];
+  vramStats?: VramLiveStats | null;
+  onOpenVramMonitor?: () => void;
   onRefreshDiagnostics: () => Promise<void>;
   onRequestPersistence: () => Promise<boolean>;
   onClearModelCache: () => Promise<void>;
@@ -32,6 +35,8 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
   onClose,
   diagnostics,
   sessions,
+  vramStats,
+  onOpenVramMonitor,
   onRefreshDiagnostics,
   onRequestPersistence,
   onClearModelCache,
@@ -187,6 +192,56 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
                 <span>Engine: WebLLM Cache</span>
               </div>
             </div>
+          </div>
+
+          {/* Real-Time VRAM Live Monitor Card */}
+          <div className="p-4 rounded-2xl glass-card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-blue-400 animate-pulse" />
+                <span className="text-xs font-semibold text-white/90">Real-Time VRAM Allocation</span>
+              </div>
+              {onOpenVramMonitor && (
+                <button
+                  type="button"
+                  id="storage-open-vram-monitor-btn"
+                  onClick={() => {
+                    onClose();
+                    onOpenVramMonitor();
+                  }}
+                  className="text-xs text-blue-400 hover:text-blue-300 font-medium cursor-pointer underline underline-offset-2"
+                >
+                  Open Live Monitor →
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-baseline justify-between">
+              <div className="text-2xl font-mono font-bold text-white">
+                {vramStats && vramStats.allocatedMB > 0 ? (
+                  <>
+                    <span>{vramStats.allocatedMB.toLocaleString()}</span>
+                    <span className="text-xs font-normal text-white/40 ml-1">MB allocated</span>
+                  </>
+                ) : (
+                  <span className="text-sm font-normal text-white/50">0 MB (Model not loaded into GPU)</span>
+                )}
+              </div>
+              {vramStats && vramStats.shaderSubmissions > 0 && (
+                <span className="font-mono text-xs text-white/50">
+                  {vramStats.shaderSubmissions.toLocaleString()} shader passes
+                </span>
+              )}
+            </div>
+
+            {vramStats && vramStats.isHealthy !== null && (
+              <div className="text-xs flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${vramStats.isHealthy ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                <span className={vramStats.isHealthy ? 'text-emerald-300' : 'text-rose-300'}>
+                  {vramStats.isHealthy ? 'GPU inference verified & operational' : 'Model compute fault detected'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Persistence & Eviction Protection */}

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import MLCWorker from './worker.ts?worker&inline';
 import { AVAILABLE_MODELS, registerCustomModels } from './modelsConfig';
-import { ChatMessage, ChatSession, Diagnostics, ModelInfo, AISettings, DetailedProgress } from './types';
+import { ChatMessage, ChatSession, Diagnostics, ModelInfo, AISettings, DetailedProgress, VramLiveStats } from './types';
 import { downloadModelParameters, checkModelParamProgress } from './lib/modelDownloader';
 import { 
   loadAllSessions, 
@@ -49,6 +49,7 @@ import { ModelSetupView } from './components/ModelSetupView';
 import { LocalModelImporterModal } from './components/LocalModelImporterModal';
 import { InfoGuideModal } from './components/InfoGuideModal';
 import { PdfExportModal } from './components/PdfExportModal';
+import { VramHealthModal } from './components/VramHealthModal';
 import { buildPrunedChatHistory, detectTextRepetition, trimRepetitionLoop } from './utils/chatHelpers';
 
 registerCustomModels(prebuiltAppConfig);
@@ -197,6 +198,8 @@ export default function App() {
   const [isLocalModelImporterOpen, setIsLocalModelImporterOpen] = useState(false);
   const [isInfoGuideOpen, setIsInfoGuideOpen] = useState(false);
   const [sessionToExportPdf, setSessionToExportPdf] = useState<ChatSession | null>(null);
+  const [isVramModalOpen, setIsVramModalOpen] = useState(false);
+  const [vramStats, setVramStats] = useState<VramLiveStats | null>(null);
   const [showConfigView, setShowConfigView] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_SETTINGS);
 
@@ -557,6 +560,8 @@ export default function App() {
       setStatus('ready');
       setIsCached(true);
       await runDiagnostics();
+      // Read initial VRAM stats immediately
+      await fetchVramStats();
     } catch (err: any) {
       if (err.message?.includes('aborted') || initAbortControllerRef.current?.signal.aborted) {
         setStatus('initial');
@@ -567,6 +572,169 @@ export default function App() {
       setErrorMsg(err.message || 'Failed to initialize WebGPU engine');
     }
   };
+
+  // Real-time VRAM & memory telemetry query
+  const fetchVramStats = async (): Promise<VramLiveStats | null> => {
+    const currentModelObj = registeredModels.find(m => m.id === selectedModel) || MODELS[0];
+
+    if (!engineRef.current) {
+      const unloadedStats: VramLiveStats = {
+        allocatedMB: 0,
+        peakAllocatedMB: 0,
+        shaderSubmissions: 0,
+        expectedModelVramMB: currentModelObj.vramMB,
+        maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
+        lastPolledAt: Date.now(),
+        status: status === 'loading' ? 'loading' : 'unloaded',
+        isHealthy: null
+      };
+      setVramStats(unloadedStats);
+      return unloadedStats;
+    }
+
+    try {
+      const statsText = await engineRef.current.runtimeStatsText();
+      let peakMB = 0;
+      let allMB = 0;
+      let submissions = 0;
+
+      if (statsText) {
+        const peakMatch = statsText.match(/peak-memory=(\d+)/);
+        if (peakMatch) peakMB = parseInt(peakMatch[1], 10);
+
+        const allMatch = statsText.match(/all-memory=(\d+)/);
+        if (allMatch) allMB = parseInt(allMatch[1], 10);
+
+        const shaderMatch = statsText.match(/shader-submissions=(\d+)/);
+        if (shaderMatch) submissions = parseInt(shaderMatch[1], 10);
+      }
+
+      const updatedStats: VramLiveStats = {
+        allocatedMB: allMB,
+        peakAllocatedMB: Math.max(peakMB, allMB),
+        shaderSubmissions: submissions,
+        expectedModelVramMB: currentModelObj.vramMB,
+        maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
+        lastPolledAt: Date.now(),
+        status: status === 'ready' ? 'ready' : (status === 'loading' ? 'loading' : 'unloaded'),
+        isHealthy: vramStats?.isHealthy ?? (allMB > 0 ? null : false),
+        healthCheckResult: vramStats?.healthCheckResult
+      };
+
+      setVramStats(updatedStats);
+      return updatedStats;
+    } catch (err) {
+      console.warn('Could not fetch runtimeStatsText:', err);
+      return null;
+    }
+  };
+
+  // Active test probe to verify that the loaded model actually responds and WebGPU compute shaders execute
+  const runModelHealthCheck = async (): Promise<{ success: boolean; latencyMs: number; error?: string }> => {
+    if (!engineRef.current) {
+      return { success: false, latencyMs: 0, error: 'Model engine is not initialized in WebGPU.' };
+    }
+
+    const start = performance.now();
+    try {
+      const probePromise = engineRef.current.chat.completions.create({
+        messages: [{ role: 'user', content: 'Ping' }],
+        max_tokens: 1,
+        temperature: 0.1,
+        stream: false
+      });
+
+      let timeoutId: any;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Inference probe timed out after 10 seconds. WebGPU pipeline may be frozen or dropped.')), 10000);
+      });
+
+      const response = (await Promise.race([probePromise, timeoutPromise])) as any;
+      clearTimeout(timeoutId);
+      const latencyMs = Math.round(performance.now() - start);
+      const token = response?.choices?.[0]?.message?.content || 'OK';
+
+      // Re-read live VRAM to show updated shader passes
+      let peakMB = 0;
+      let allMB = 0;
+      let submissions = 0;
+      try {
+        const statsText = await engineRef.current.runtimeStatsText();
+        if (statsText) {
+          const peakMatch = statsText.match(/peak-memory=(\d+)/);
+          if (peakMatch) peakMB = parseInt(peakMatch[1], 10);
+          const allMatch = statsText.match(/all-memory=(\d+)/);
+          if (allMatch) allMB = parseInt(allMatch[1], 10);
+          const shaderMatch = statsText.match(/shader-submissions=(\d+)/);
+          if (shaderMatch) submissions = parseInt(shaderMatch[1], 10);
+        }
+      } catch {}
+
+      const currentModelObj = registeredModels.find(m => m.id === selectedModel) || MODELS[0];
+      const verifiedStats: VramLiveStats = {
+        allocatedMB: allMB,
+        peakAllocatedMB: Math.max(peakMB, allMB),
+        shaderSubmissions: submissions,
+        expectedModelVramMB: currentModelObj.vramMB,
+        maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
+        lastPolledAt: Date.now(),
+        status: 'ready',
+        isHealthy: true,
+        healthCheckResult: {
+          latencyMs,
+          testedAt: Date.now(),
+          sampleToken: token
+        }
+      };
+
+      setVramStats(verifiedStats);
+      return { success: true, latencyMs };
+    } catch (err: any) {
+      const latencyMs = Math.round(performance.now() - start);
+      const errMsg = err?.message || 'WebGPU compute execution failure';
+
+      const currentModelObj = registeredModels.find(m => m.id === selectedModel) || MODELS[0];
+      setVramStats(prev => ({
+        ...(prev || {
+          allocatedMB: 0,
+          peakAllocatedMB: 0,
+          shaderSubmissions: 0,
+          expectedModelVramMB: currentModelObj.vramMB,
+          maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
+          lastPolledAt: Date.now(),
+          status: 'error'
+        }),
+        isHealthy: false,
+        healthCheckResult: {
+          latencyMs,
+          testedAt: Date.now(),
+          error: errMsg
+        }
+      }));
+
+      return { success: false, latencyMs, error: errMsg };
+    }
+  };
+
+  // Force reload WebGPU pipeline (re-allocates VRAM cleanly from browser cache)
+  const handleReloadPipeline = async () => {
+    if (engineRef.current) {
+      try {
+        await engineRef.current.unload();
+      } catch {}
+      engineRef.current = null;
+    }
+    await initEngine(selectedModel);
+  };
+
+  // Periodic background VRAM telemetry polling
+  useEffect(() => {
+    if (status !== 'ready' && !isVramModalOpen) return;
+    const interval = setInterval(() => {
+      fetchVramStats().catch(() => {});
+    }, isVramModalOpen ? 1800 : 4000);
+    return () => clearInterval(interval);
+  }, [status, isVramModalOpen, selectedModel]);
 
   // Model Selection
   const handleModelSelect = (modelId: string) => {
@@ -764,6 +932,7 @@ export default function App() {
     } finally {
       setIsTyping(false);
       abortControllerRef.current = null;
+      fetchVramStats().catch(() => {});
     }
   };
 
@@ -839,6 +1008,8 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenStorageManager={() => setIsStorageModalOpen(true)}
         onOpenLocalModelImporter={() => setIsLocalModelImporterOpen(true)}
+        onOpenVramMonitor={() => setIsVramModalOpen(true)}
+        vramStats={vramStats}
         diagnostics={diagnostics}
         disabled={isTyping}
       />
@@ -863,6 +1034,8 @@ export default function App() {
           }}
           onOpenLocalModelImporter={() => setIsLocalModelImporterOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenVramMonitor={() => setIsVramModalOpen(true)}
+          vramStats={vramStats}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
           hasPastMessages={messages.length > 0}
@@ -940,6 +1113,8 @@ export default function App() {
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenStorage={() => setIsStorageModalOpen(true)}
             onOpenInfoGuide={() => setIsInfoGuideOpen(true)}
+            onOpenVramMonitor={() => setIsVramModalOpen(true)}
+            vramStats={vramStats}
             diagnostics={diagnostics}
             isOnline={isOnline}
             isWorkerActive={executionMode === 'worker'}
@@ -968,6 +1143,8 @@ export default function App() {
         onClose={() => setIsStorageModalOpen(false)}
         diagnostics={diagnostics}
         sessions={sessions}
+        vramStats={vramStats}
+        onOpenVramMonitor={() => setIsVramModalOpen(true)}
         onRefreshDiagnostics={runDiagnostics}
         onRequestPersistence={requestPersistentStorage}
         onClearModelCache={handleClearModelCache}
@@ -998,6 +1175,22 @@ export default function App() {
         onClose={() => setSessionToExportPdf(null)}
         session={sessionToExportPdf}
         preprocessLatex={preprocessLatex}
+      />
+
+      {/* Real-Time VRAM & Model Health Diagnostics Modal */}
+      <VramHealthModal
+        isOpen={isVramModalOpen}
+        onClose={() => setIsVramModalOpen(false)}
+        vramStats={vramStats}
+        diagnostics={diagnostics}
+        currentModel={registeredModels.find(m => m.id === selectedModel) || MODELS[0]}
+        isEngineReady={status === 'ready'}
+        isLoading={status === 'loading'}
+        isTyping={isTyping}
+        executionMode={executionMode}
+        onRefresh={fetchVramStats}
+        onRunHealthCheck={runModelHealthCheck}
+        onReloadPipeline={handleReloadPipeline}
       />
     </div>
   );

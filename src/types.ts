@@ -74,3 +74,20 @@ export interface DetailedProgress {
   stepName?: string;
 }
 
+export interface VramLiveStats {
+  allocatedMB: number;
+  peakAllocatedMB: number;
+  shaderSubmissions: number;
+  expectedModelVramMB: number;
+  maxStorageBufferMB: number | null;
+  lastPolledAt: number;
+  status: 'unloaded' | 'loading' | 'ready' | 'error' | 'device_lost';
+  isHealthy: boolean | null;
+  healthCheckResult?: {
+    latencyMs: number;
+    testedAt: number;
+    error?: string;
+    sampleToken?: string;
+  };
+}
+

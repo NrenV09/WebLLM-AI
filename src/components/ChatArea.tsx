@@ -7,9 +7,10 @@ import {
   HardDrive, 
   Wifi, 
   WifiOff, 
-  Lightbulb
+  Lightbulb,
+  Activity
 } from 'lucide-react';
-import { ChatMessage, ModelInfo, Diagnostics } from '../types';
+import { ChatMessage, ModelInfo, Diagnostics, VramLiveStats } from '../types';
 import { MessageItem } from './MessageItem';
 import { ChatInput } from './ChatInput';
 
@@ -35,6 +36,8 @@ interface ChatAreaProps {
   status?: 'initial' | 'loading' | 'error' | 'ready' | 'unsupported';
   isModelLoaded?: boolean;
   onLoadModel?: () => void;
+  vramStats?: VramLiveStats | null;
+  onOpenVramMonitor?: () => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -58,7 +61,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   preprocessLatex,
   status = 'initial',
   isModelLoaded,
-  onLoadModel
+  onLoadModel,
+  vramStats,
+  onOpenVramMonitor
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -104,6 +109,39 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-white/70 shrink-0" />
             <span className="truncate">{currentModel?.name}</span>
           </div>
+
+          {/* Interactive Real-Time VRAM & Health Badge */}
+          {onOpenVramMonitor && (
+            <button
+              type="button"
+              id="header-vram-monitor-btn"
+              onClick={onOpenVramMonitor}
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border text-xs font-medium transition-all cursor-pointer backdrop-blur-xl shadow-xs active:scale-95 shrink-0 ${
+                vramStats && vramStats.allocatedMB > 0
+                  ? vramStats.isHealthy === true
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                    : vramStats.isHealthy === false
+                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25 animate-pulse'
+                      : 'bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20'
+                  : status === 'ready'
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 animate-pulse'
+                    : 'bg-white/[0.04] border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.08]'
+              }`}
+              title="Click to inspect real-time VRAM allocation and run live health probe"
+            >
+              <Activity className={`w-3.5 h-3.5 ${vramStats && vramStats.allocatedMB > 0 ? 'text-blue-400' : 'text-white/50'} animate-pulse shrink-0`} />
+              <span className="font-mono font-semibold">
+                {vramStats && vramStats.allocatedMB > 0
+                  ? `${vramStats.allocatedMB.toLocaleString()} MB`
+                  : status === 'ready'
+                    ? '0 MB VRAM ⚠️'
+                    : 'VRAM'}
+              </span>
+              <span className="hidden md:inline text-[11px] font-normal opacity-80">
+                {vramStats?.isHealthy === true ? '• Verified' : vramStats?.isHealthy === false ? '• Error' : status === 'ready' && vramStats?.allocatedMB ? '• Ready' : status === 'ready' ? '• Check' : ''}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Header Right Actions */}

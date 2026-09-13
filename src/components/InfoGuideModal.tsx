@@ -56,6 +56,12 @@ export const InfoGuideModal: React.FC<InfoGuideModalProps> = ({ isOpen, onClose 
       icon: HardDrive,
       badge: 'Persistence',
       description: 'Provides direct inspection and management of IndexedDB chat conversations, downloaded model weights, and browser persistent storage guarantees.'
+    },
+    {
+      title: 'Real-Time VRAM & Model Health Probe',
+      icon: Cpu,
+      badge: 'VRAM Live',
+      description: 'Actively monitors WebGPU VRAM allocation, shader submissions, and lets you run an instant 1-token health probe to verify that the model is genuinely executing on your GPU and not stalled.'
     }
   ];
 

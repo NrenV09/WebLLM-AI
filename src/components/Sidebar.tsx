@@ -16,9 +16,10 @@ import {
   Sparkles,
   Database,
   MoreVertical,
-  FileDown
+  FileDown,
+  Activity
 } from 'lucide-react';
-import { ChatSession, Diagnostics } from '../types';
+import { ChatSession, Diagnostics, VramLiveStats } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -33,6 +34,8 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onOpenStorageManager: () => void;
   onOpenLocalModelImporter?: () => void;
+  onOpenVramMonitor?: () => void;
+  vramStats?: VramLiveStats | null;
   diagnostics: Diagnostics;
   disabled: boolean;
 }
@@ -50,6 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onOpenStorageManager,
   onOpenLocalModelImporter,
+  onOpenVramMonitor,
+  vramStats,
   diagnostics,
   disabled
 }) => {
@@ -333,37 +338,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Persistent Bottom Actions */}
           <div className="p-3 border-t border-white/[0.08] shrink-0 bg-black/60 overflow-hidden">
-            {/* Quick Settings, Storage & Import Glass Buttons */}
-            <div className="grid grid-cols-3 gap-1.5 overflow-hidden">
+            {/* Quick Settings, Storage, VRAM & Import Glass Buttons */}
+            <div className={`grid ${onOpenLocalModelImporter ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 overflow-hidden`}>
               <button
                 type="button"
+                id="sidebar-settings-btn"
                 onClick={onOpenSettings}
-                className="flex items-center justify-center gap-1 px-1.5 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
+                className="flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
                 title="Settings"
               >
                 <Settings className="w-3.5 h-3.5 text-white/60 shrink-0" />
-                <span className="truncate">Settings</span>
+                <span className="truncate text-[11px]">Settings</span>
               </button>
 
               <button
                 type="button"
+                id="sidebar-storage-btn"
                 onClick={onOpenStorageManager}
-                className="flex items-center justify-center gap-1 px-1.5 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
+                className="flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
                 title="Storage & Cache"
               >
                 <HardDrive className="w-3.5 h-3.5 text-white/60 shrink-0" />
-                <span className="truncate">Storage</span>
+                <span className="truncate text-[11px]">Storage</span>
               </button>
+
+              {onOpenVramMonitor && (
+                <button
+                  type="button"
+                  id="sidebar-vram-monitor-btn"
+                  onClick={onOpenVramMonitor}
+                  className={`flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95 transition-all ${
+                    vramStats && vramStats.allocatedMB > 0
+                      ? vramStats.isHealthy === false
+                        ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                        : 'bg-blue-500/10 text-blue-300 border border-blue-500/25 hover:bg-blue-500/20'
+                      : 'text-white/80 hover:text-white glass-button'
+                  }`}
+                  title="Real-Time VRAM & Health Monitor"
+                >
+                  <Activity className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-pulse" />
+                  <span className="truncate text-[11px]">
+                    {vramStats && vramStats.allocatedMB > 0 ? `${vramStats.allocatedMB}M` : 'VRAM'}
+                  </span>
+                </button>
+              )}
 
               {onOpenLocalModelImporter && (
                 <button
                   type="button"
+                  id="sidebar-import-btn"
                   onClick={onOpenLocalModelImporter}
-                  className="flex items-center justify-center gap-1 px-1.5 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
+                  className="flex items-center justify-center gap-1 px-1 py-2 rounded-xl text-white/80 hover:text-white glass-button text-xs font-medium cursor-pointer whitespace-nowrap overflow-hidden active:scale-95"
                   title="Import Model from Files"
                 >
                   <Upload className="w-3.5 h-3.5 text-white/60 shrink-0" />
-                  <span className="truncate">Import</span>
+                  <span className="truncate text-[11px]">Import</span>
                 </button>
               )}
             </div>

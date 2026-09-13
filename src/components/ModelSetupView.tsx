@@ -10,9 +10,10 @@ import {
   XCircle, 
   AlertTriangle,
   RotateCcw,
-  Sliders
+  Sliders,
+  Activity
 } from 'lucide-react';
-import { ModelInfo, DetailedProgress, AISettings } from '../types';
+import { ModelInfo, DetailedProgress, AISettings, VramLiveStats } from '../types';
 
 interface ModelSetupViewProps {
   models: ModelInfo[];
@@ -29,6 +30,8 @@ interface ModelSetupViewProps {
   onUpdateAISettings: (settings: AISettings) => void;
   onOpenLocalModelImporter: () => void;
   onOpenSettings: () => void;
+  onOpenVramMonitor?: () => void;
+  vramStats?: VramLiveStats | null;
   onToggleSidebar: () => void;
   isSidebarOpen: boolean;
   hasPastMessages?: boolean;
@@ -50,6 +53,8 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
   onUpdateAISettings,
   onOpenLocalModelImporter,
   onOpenSettings,
+  onOpenVramMonitor,
+  vramStats,
   onToggleSidebar,
   isSidebarOpen,
   hasPastMessages,
@@ -89,6 +94,25 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
               className="px-3 py-1.5 rounded-xl glass-button text-xs text-white/80 hover:text-white cursor-pointer"
             >
               View Conversation
+            </button>
+          )}
+
+          {onOpenVramMonitor && (
+            <button
+              type="button"
+              id="model-setup-vram-btn"
+              onClick={onOpenVramMonitor}
+              className={`p-2 rounded-xl glass-button cursor-pointer flex items-center gap-1.5 text-xs ${
+                vramStats && vramStats.allocatedMB > 0
+                  ? 'text-blue-300 bg-blue-500/10 border-blue-500/20'
+                  : 'text-white/70 hover:text-white'
+              }`}
+              title="Real-Time VRAM & Model Health Monitor"
+            >
+              <Activity className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" />
+              <span className="hidden sm:inline font-mono text-[11px]">
+                {vramStats && vramStats.allocatedMB > 0 ? `${vramStats.allocatedMB} MB` : 'VRAM'}
+              </span>
             </button>
           )}
 
