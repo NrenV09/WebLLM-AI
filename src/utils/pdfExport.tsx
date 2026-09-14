@@ -372,14 +372,14 @@ export async function exportChatSessionToPdf(
   session: ChatSession,
   preprocessLatex: (content: string) => string,
   onProgress?: (stage: 'preparing' | 'generating' | 'done') => void
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   onProgress?.('preparing');
 
   // 1. Create temporary off-screen container in DOM
   const container = document.createElement('div');
   container.id = `pdf-export-temp-${Date.now()}`;
-  container.style.position = 'absolute';
-  container.style.left = '0';
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
   container.style.top = '0';
   container.style.width = '794px'; // A4 pixel width at 96 DPI
   container.style.background = '#ffffff';
@@ -421,15 +421,19 @@ export async function exportChatSessionToPdf(
         useCORS: true,
         letterRendering: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        windowWidth: container.scrollWidth,
+        windowHeight: container.scrollHeight
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    await h2p().set(opt).from(container).save();
+    const pdfBlob = await h2p().set(opt).from(container).output('blob');
 
     onProgress?.('done');
+    
+    return { blob: pdfBlob, filename: `${sanitizedTitle}.pdf` };
   } finally {
     // 5. Clean up DOM and root
     setTimeout(() => {

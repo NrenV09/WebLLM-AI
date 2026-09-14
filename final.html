@@ -11,8 +11,8 @@
     <meta property="og:description" content="An offline, fully-functional AI chat using WebGPU right in the browser." />
     <link rel="manifest" href="./manifest.json" />
     <title>Local Browser AI</title>
-    <script type="module" crossorigin src="./assets/index-DI3yQBtA.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CBbyGr2C.css">
+    <script type="module" crossorigin src="./assets/index-SOnstLd2.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-D5snQxr_.css">
   
     <style>
 @import "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap";
@@ -110,6 +110,8 @@
     --color-emerald-300: oklch(84.5% .143 164.978);
     --color-emerald-400: oklch(76.5% .177 163.223);
     --color-emerald-500: oklch(69.6% .17 162.48);
+    --color-teal-500: oklch(70.4% .14 182.503);
+    --color-teal-600: oklch(60% .118 184.704);
     --color-blue-300: oklch(80.9% .105 251.813);
     --color-blue-400: oklch(70.7% .165 254.624);
     --color-blue-500: oklch(62.3% .214 259.815);
@@ -3004,6 +3006,11 @@
     --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
   }
 
+  .from-emerald-500 {
+    --tw-gradient-from: var(--color-emerald-500);
+    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+  }
+
   .via-indigo-400 {
     --tw-gradient-via: var(--color-indigo-400);
     --tw-gradient-via-stops: var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-via) var(--tw-gradient-via-position), var(--tw-gradient-to) var(--tw-gradient-to-position);
@@ -3043,6 +3050,11 @@
 
   .to-purple-500 {
     --tw-gradient-to: var(--color-purple-500);
+    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+  }
+
+  .to-teal-600 {
+    --tw-gradient-to: var(--color-teal-600);
     --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
   }
 
@@ -3887,6 +3899,26 @@
     }
   }
 
+  .shadow-emerald-500 {
+    --tw-shadow-color: oklch(69.6% .17 162.48);
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .shadow-emerald-500 {
+      --tw-shadow-color: color-mix(in oklab, var(--color-emerald-500) var(--tw-shadow-alpha), transparent);
+    }
+  }
+
+  .shadow-emerald-500\/25 {
+    --tw-shadow-color: #00bb7f40;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .shadow-emerald-500\/25 {
+      --tw-shadow-color: color-mix(in oklab, color-mix(in oklab, var(--color-emerald-500) 25%, transparent) var(--tw-shadow-alpha), transparent);
+    }
+  }
+
   .shadow-rose-500 {
     --tw-shadow-color: oklch(64.5% .246 16.439);
   }
@@ -4343,6 +4375,11 @@
       --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
     }
 
+    .hover\:from-emerald-400:hover {
+      --tw-gradient-from: var(--color-emerald-400);
+      --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+    }
+
     .hover\:to-indigo-400:hover {
       --tw-gradient-to: var(--color-indigo-400);
       --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
@@ -4350,6 +4387,11 @@
 
     .hover\:to-indigo-500:hover {
       --tw-gradient-to: var(--color-indigo-500);
+      --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+    }
+
+    .hover\:to-teal-500:hover {
+      --tw-gradient-to: var(--color-teal-500);
       --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
     }
 
@@ -132546,8 +132588,8 @@ async function exportChatSessionToPdf(session, preprocessLatex2, onProgress) {
   onProgress == null ? void 0 : onProgress("preparing");
   const container = document.createElement("div");
   container.id = `pdf-export-temp-${Date.now()}`;
-  container.style.position = "absolute";
-  container.style.left = "0";
+  container.style.position = "fixed";
+  container.style.left = "-9999px";
   container.style.top = "0";
   container.style.width = "794px";
   container.style.background = "#ffffff";
@@ -132587,13 +132629,16 @@ async function exportChatSessionToPdf(session, preprocessLatex2, onProgress) {
         useCORS: true,
         letterRendering: true,
         logging: false,
-        backgroundColor: "#ffffff"
+        backgroundColor: "#ffffff",
+        windowWidth: container.scrollWidth,
+        windowHeight: container.scrollHeight
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["avoid-all", "css", "legacy"] }
     };
-    await h2p().set(opt).from(container).save();
+    const pdfBlob = await h2p().set(opt).from(container).output("blob");
     onProgress == null ? void 0 : onProgress("done");
+    return { blob: pdfBlob, filename: `${sanitizedTitle}.pdf` };
   } finally {
     setTimeout(() => {
       try {
@@ -132637,7 +132682,7 @@ async function printChatSessionViaBrowser(session, preprocessLatex2) {
       false,
       {
         fileName: "/app/applet/src/utils/pdfExport.tsx",
-        lineNumber: 479,
+        lineNumber: 483,
         columnNumber: 5
       },
       this
@@ -132666,23 +132711,32 @@ const PdfExportModal = ({
   const [stage, setStage] = reactExports.useState("idle");
   const [errorMessage, setErrorMessage] = reactExports.useState(null);
   const [isPrinting, setIsPrinting] = reactExports.useState(false);
+  const [downloadInfo, setDownloadInfo] = reactExports.useState(null);
   reactExports.useEffect(() => {
     if (!isOpen || !session) {
       setStage("idle");
       setErrorMessage(null);
+      if (downloadInfo) {
+        URL.revokeObjectURL(downloadInfo.url);
+        setDownloadInfo(null);
+      }
       return;
     }
     let isMounted = true;
     const runExport = async () => {
       try {
         setErrorMessage(null);
-        await exportChatSessionToPdf(
+        const { blob: blob2, filename } = await exportChatSessionToPdf(
           session,
           preprocessLatex2,
           (stg) => {
             if (isMounted) setStage(stg);
           }
         );
+        if (isMounted) {
+          const url = URL.createObjectURL(blob2);
+          setDownloadInfo({ url, filename });
+        }
       } catch (err) {
         console.error("PDF Export error:", err);
         if (isMounted) {
@@ -132696,11 +132750,24 @@ const PdfExportModal = ({
       isMounted = false;
     };
   }, [isOpen, session, preprocessLatex2]);
+  reactExports.useEffect(() => {
+    return () => {
+      if (downloadInfo) {
+        URL.revokeObjectURL(downloadInfo.url);
+      }
+    };
+  }, [downloadInfo]);
   if (!isOpen || !session) return null;
   const handleManualDownload = async () => {
     try {
       setErrorMessage(null);
-      await exportChatSessionToPdf(session, preprocessLatex2, setStage);
+      if (downloadInfo) {
+        URL.revokeObjectURL(downloadInfo.url);
+        setDownloadInfo(null);
+      }
+      const { blob: blob2, filename } = await exportChatSessionToPdf(session, preprocessLatex2, setStage);
+      const url = URL.createObjectURL(blob2);
+      setDownloadInfo({ url, filename });
     } catch (err) {
       setStage("error");
       setErrorMessage((err == null ? void 0 : err.message) || "Download failed. Please try browser print.");
@@ -132732,7 +132799,7 @@ const PdfExportModal = ({
           children: [
             /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" }, void 0, false, {
               fileName: "/app/applet/src/components/PdfExportModal.tsx",
-              lineNumber: 96,
+              lineNumber: 121,
               columnNumber: 9
             }, void 0),
             /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
@@ -132744,7 +132811,7 @@ const PdfExportModal = ({
                 className: "absolute top-4 right-4 p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer",
                 children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(X, { className: "w-4 h-4" }, void 0, false, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 105,
+                  lineNumber: 130,
                   columnNumber: 11
                 }, void 0)
               },
@@ -132752,7 +132819,7 @@ const PdfExportModal = ({
               false,
               {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 99,
+                lineNumber: 124,
                 columnNumber: 9
               },
               void 0
@@ -132760,17 +132827,17 @@ const PdfExportModal = ({
             /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-3 mb-5", children: [
               /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(FileDown, { className: "w-5 h-5 text-blue-400" }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 111,
+                lineNumber: 136,
                 columnNumber: 13
               }, void 0) }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 110,
+                lineNumber: 135,
                 columnNumber: 11
               }, void 0),
               /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "min-w-0 flex-1 pr-6", children: [
                 /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("h2", { className: "text-base font-semibold text-white tracking-tight truncate", children: "Save Chat as PDF" }, void 0, false, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 114,
+                  lineNumber: 139,
                   columnNumber: 13
                 }, void 0),
                 /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("p", { className: "text-xs text-white/50 truncate", children: [
@@ -132779,43 +132846,43 @@ const PdfExportModal = ({
                   '"'
                 ] }, void 0, true, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 117,
+                  lineNumber: 142,
                   columnNumber: 13
                 }, void 0)
               ] }, void 0, true, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 113,
+                lineNumber: 138,
                 columnNumber: 11
               }, void 0)
             ] }, void 0, true, {
               fileName: "/app/applet/src/components/PdfExportModal.tsx",
-              lineNumber: 109,
+              lineNumber: 134,
               columnNumber: 9
             }, void 0),
             /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "mb-5 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08]", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-3", children: [
               isWorking ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(LoaderCircle, { className: "w-4 h-4 text-blue-400 animate-spin" }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 128,
+                lineNumber: 153,
                 columnNumber: 17
               }, void 0) }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 127,
+                lineNumber: 152,
                 columnNumber: 15
               }, void 0) : stage === "done" ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Check, { className: "w-4 h-4 text-emerald-400" }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 132,
+                lineNumber: 157,
                 columnNumber: 17
               }, void 0) }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 131,
+                lineNumber: 156,
                 columnNumber: 15
               }, void 0) : stage === "error" ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "w-8 h-8 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(CircleAlert, { className: "w-4 h-4 text-rose-400" }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 136,
+                lineNumber: 161,
                 columnNumber: 17
               }, void 0) }, void 0, false, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 135,
+                lineNumber: 160,
                 columnNumber: 15
               }, void 0) : null,
               /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex-1 min-w-0", children: [
@@ -132826,73 +132893,100 @@ const PdfExportModal = ({
                   stage === "error" && "Export encountered an issue"
                 ] }, void 0, true, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 141,
+                  lineNumber: 166,
                   columnNumber: 15
                 }, void 0),
                 /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "text-[11px] text-white/40 mt-0.5", children: [
                   stage === "preparing" && "Normalizing KaTeX formulas, symbols, and equations",
                   stage === "generating" && "Packaging vector and typography layout into .pdf",
-                  stage === "done" && "Your browser should start downloading the file automatically",
+                  stage === "done" && "Click the green button below to save the file to your device.",
                   stage === "error" && (errorMessage || "Please try again or use the browser print option")
                 ] }, void 0, true, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 147,
+                  lineNumber: 172,
                   columnNumber: 15
                 }, void 0)
               ] }, void 0, true, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 140,
+                lineNumber: 165,
                 columnNumber: 13
               }, void 0)
             ] }, void 0, true, {
               fileName: "/app/applet/src/components/PdfExportModal.tsx",
-              lineNumber: 125,
+              lineNumber: 150,
               columnNumber: 11
             }, void 0) }, void 0, false, {
               fileName: "/app/applet/src/components/PdfExportModal.tsx",
-              lineNumber: 124,
+              lineNumber: 149,
               columnNumber: 9
             }, void 0),
             /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "mb-6 space-y-1.5 text-xs text-white/60 bg-white/[0.02] p-3 rounded-xl border border-white/[0.05]", children: [
               /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-2 text-[11px]", children: [
                 /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Sparkles, { className: "w-3.5 h-3.5 text-[#a8c7fa] shrink-0" }, void 0, false, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 160,
+                  lineNumber: 185,
                   columnNumber: 13
                 }, void 0),
                 /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: "LaTeX formulas ($...$ & $$...$$) rendered in mathematical notation" }, void 0, false, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 161,
+                  lineNumber: 186,
                   columnNumber: 13
                 }, void 0)
               ] }, void 0, true, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 159,
+                lineNumber: 184,
                 columnNumber: 11
               }, void 0),
               /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-2 text-[11px]", children: [
                 /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Check, { className: "w-3.5 h-3.5 text-emerald-400 shrink-0" }, void 0, false, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 164,
+                  lineNumber: 189,
                   columnNumber: 13
                 }, void 0),
                 /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: "Clean print typography with full code block and table formatting" }, void 0, false, {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 165,
+                  lineNumber: 190,
                   columnNumber: 13
                 }, void 0)
               ] }, void 0, true, {
                 fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                lineNumber: 163,
+                lineNumber: 188,
                 columnNumber: 11
               }, void 0)
             ] }, void 0, true, {
               fileName: "/app/applet/src/components/PdfExportModal.tsx",
-              lineNumber: 158,
+              lineNumber: 183,
               columnNumber: 9
             }, void 0),
             /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex flex-col sm:flex-row items-center gap-2.5", children: [
-              /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
+              stage === "done" && downloadInfo ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
+                "a",
+                {
+                  href: downloadInfo.url,
+                  download: downloadInfo.filename,
+                  className: "w-full flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-500/25 transition-all cursor-pointer active:scale-95",
+                  children: [
+                    /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(FileDown, { className: "w-3.5 h-3.5" }, void 0, false, {
+                      fileName: "/app/applet/src/components/PdfExportModal.tsx",
+                      lineNumber: 202,
+                      columnNumber: 15
+                    }, void 0),
+                    /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: "Save File Now" }, void 0, false, {
+                      fileName: "/app/applet/src/components/PdfExportModal.tsx",
+                      lineNumber: 203,
+                      columnNumber: 15
+                    }, void 0)
+                  ]
+                },
+                void 0,
+                true,
+                {
+                  fileName: "/app/applet/src/components/PdfExportModal.tsx",
+                  lineNumber: 197,
+                  columnNumber: 13
+                },
+                void 0
+              ) : /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
                 "button",
                 {
                   type: "button",
@@ -132903,17 +132997,17 @@ const PdfExportModal = ({
                   children: [
                     isWorking ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(LoaderCircle, { className: "w-3.5 h-3.5 animate-spin" }, void 0, false, {
                       fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                      lineNumber: 179,
-                      columnNumber: 15
+                      lineNumber: 214,
+                      columnNumber: 17
                     }, void 0) : /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(FileDown, { className: "w-3.5 h-3.5" }, void 0, false, {
                       fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                      lineNumber: 181,
-                      columnNumber: 15
+                      lineNumber: 216,
+                      columnNumber: 17
                     }, void 0),
-                    /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: stage === "done" ? "Download PDF again" : "Download PDF" }, void 0, false, {
+                    /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: "Download PDF" }, void 0, false, {
                       fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                      lineNumber: 183,
-                      columnNumber: 13
+                      lineNumber: 218,
+                      columnNumber: 15
                     }, void 0)
                   ]
                 },
@@ -132921,8 +133015,8 @@ const PdfExportModal = ({
                 true,
                 {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 171,
-                  columnNumber: 11
+                  lineNumber: 206,
+                  columnNumber: 13
                 },
                 void 0
               ),
@@ -132938,16 +133032,16 @@ const PdfExportModal = ({
                   children: [
                     isPrinting ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(LoaderCircle, { className: "w-3.5 h-3.5 animate-spin" }, void 0, false, {
                       fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                      lineNumber: 195,
+                      lineNumber: 231,
                       columnNumber: 15
                     }, void 0) : /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Printer, { className: "w-3.5 h-3.5 text-white/70" }, void 0, false, {
                       fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                      lineNumber: 197,
+                      lineNumber: 233,
                       columnNumber: 15
                     }, void 0),
                     /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: "Print / Vector PDF" }, void 0, false, {
                       fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                      lineNumber: 199,
+                      lineNumber: 235,
                       columnNumber: 13
                     }, void 0)
                   ]
@@ -132956,14 +133050,14 @@ const PdfExportModal = ({
                 true,
                 {
                   fileName: "/app/applet/src/components/PdfExportModal.tsx",
-                  lineNumber: 186,
+                  lineNumber: 222,
                   columnNumber: 11
                 },
                 void 0
               )
             ] }, void 0, true, {
               fileName: "/app/applet/src/components/PdfExportModal.tsx",
-              lineNumber: 170,
+              lineNumber: 195,
               columnNumber: 9
             }, void 0)
           ]
@@ -132972,7 +133066,7 @@ const PdfExportModal = ({
         true,
         {
           fileName: "/app/applet/src/components/PdfExportModal.tsx",
-          lineNumber: 90,
+          lineNumber: 115,
           columnNumber: 7
         },
         void 0
@@ -132982,7 +133076,7 @@ const PdfExportModal = ({
     false,
     {
       fileName: "/app/applet/src/components/PdfExportModal.tsx",
-      lineNumber: 85,
+      lineNumber: 110,
       columnNumber: 5
     },
     void 0
@@ -134589,8 +134683,32 @@ function App() {
         }
       }
     }
+    if (typeof indexedDB !== "undefined" && indexedDB.databases) {
+      try {
+        const dbs = await indexedDB.databases();
+        for (const db of dbs) {
+          if (db.name && (db.name.includes("webllm") || db.name.includes("tvmjs") || db.name.includes("mlc"))) {
+            if (db.name !== "local_webllm_chat_db") {
+              indexedDB.deleteDatabase(db.name);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("IDB clear error:", e);
+      }
+    }
+    if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.getDirectory) {
+      try {
+        const root2 = await navigator.storage.getDirectory();
+        await root2.removeEntry("tvmjs-opfs-store", { recursive: true }).catch(() => {
+        });
+      } catch (e) {
+        console.warn("OPFS clear error:", e);
+      }
+    }
     setIsCached(false);
     setParamStatus({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
     await runDiagnostics();
   };
   const handleSend = async (customPrompt) => {
@@ -134785,48 +134903,48 @@ function App() {
     return /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "fixed inset-0 flex h-full w-full items-center justify-center bg-[#0b0d11] text-white p-6 font-sans", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "max-w-md w-full p-8 border border-white/[0.08] bg-[#12141a]/90 backdrop-blur-2xl rounded-3xl text-center space-y-6 shadow-2xl", children: [
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Cpu, { className: "w-8 h-8" }, void 0, false, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1043,
+        lineNumber: 1074,
         columnNumber: 13
       }, this) }, void 0, false, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1042,
+        lineNumber: 1073,
         columnNumber: 11
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "space-y-2", children: [
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("h1", { className: "text-xl font-semibold tracking-tight", children: "WebGPU Acceleration Required" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1046,
+          lineNumber: 1077,
           columnNumber: 13
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("p", { className: "text-sm text-white/60 leading-relaxed", children: "Your browser or graphics driver does not currently have WebGPU active. WebGPU is needed to execute model weights natively in local VRAM with zero cloud servers." }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1047,
+          lineNumber: 1078,
           columnNumber: 13
         }, this)
       ] }, void 0, true, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1045,
+        lineNumber: 1076,
         columnNumber: 11
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "p-4 bg-white/[0.03] rounded-2xl border border-white/[0.06] text-xs text-left text-white/70 space-y-2 font-mono", children: [
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "font-semibold text-white/90 font-sans", children: "How to enable WebGPU:" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1052,
+          lineNumber: 1083,
           columnNumber: 13
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { children: "• Chrome/Brave/Edge: Settings → System → Enable Hardware Acceleration" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1053,
+          lineNumber: 1084,
           columnNumber: 13
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { children: "• Safari: Settings → Advanced → Feature Flags → WebGPU" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1054,
+          lineNumber: 1085,
           columnNumber: 13
         }, this)
       ] }, void 0, true, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1051,
+        lineNumber: 1082,
         columnNumber: 11
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
@@ -134840,18 +134958,18 @@ function App() {
         false,
         {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1056,
+          lineNumber: 1087,
           columnNumber: 11
         },
         this
       )
     ] }, void 0, true, {
       fileName: "/app/applet/src/App.tsx",
-      lineNumber: 1041,
+      lineNumber: 1072,
       columnNumber: 9
     }, this) }, void 0, false, {
       fileName: "/app/applet/src/App.tsx",
-      lineNumber: 1040,
+      lineNumber: 1071,
       columnNumber: 7
     }, this);
   }
@@ -134886,7 +135004,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1071,
+        lineNumber: 1102,
         columnNumber: 7
       },
       this
@@ -134922,7 +135040,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1098,
+        lineNumber: 1129,
         columnNumber: 9
       },
       this
@@ -134931,51 +135049,51 @@ function App() {
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-2 text-white/70", children: status === "loading" ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(jsxDevRuntimeExports.Fragment, { children: [
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(LoaderCircle, { className: "w-3.5 h-3.5 animate-spin text-white" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1131,
+            lineNumber: 1162,
             columnNumber: 21
           }, this),
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: detailedProgress.step === 1 ? `Downloading Parameters (${detailedProgress.paramsPercent}%)` : `Compiling Shaders (${detailedProgress.progressPercent}%)` }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1132,
+            lineNumber: 1163,
             columnNumber: 21
           }, this)
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1130,
+          lineNumber: 1161,
           columnNumber: 19
         }, this) : status === "error" ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(jsxDevRuntimeExports.Fragment, { children: [
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(TriangleAlert, { className: "w-3.5 h-3.5 text-rose-400" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1140,
+            lineNumber: 1171,
             columnNumber: 21
           }, this),
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { className: "text-rose-300", children: "Model not active in WebGPU memory" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1141,
+            lineNumber: 1172,
             columnNumber: 21
           }, this)
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1139,
+          lineNumber: 1170,
           columnNumber: 19
         }, this) : /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(jsxDevRuntimeExports.Fragment, { children: [
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Sparkles, { className: "w-3.5 h-3.5 text-white/60" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1145,
+            lineNumber: 1176,
             columnNumber: 21
           }, this),
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: "Model not loaded into WebGPU VRAM" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1146,
+            lineNumber: 1177,
             columnNumber: 21
           }, this)
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1144,
+          lineNumber: 1175,
           columnNumber: 19
         }, this) }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1128,
+          lineNumber: 1159,
           columnNumber: 15
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-2", children: [
@@ -134991,7 +135109,7 @@ function App() {
             false,
             {
               fileName: "/app/applet/src/App.tsx",
-              lineNumber: 1153,
+              lineNumber: 1184,
               columnNumber: 19
             },
             this
@@ -135007,7 +135125,7 @@ function App() {
             false,
             {
               fileName: "/app/applet/src/App.tsx",
-              lineNumber: 1161,
+              lineNumber: 1192,
               columnNumber: 19
             },
             this
@@ -135024,19 +135142,19 @@ function App() {
             false,
             {
               fileName: "/app/applet/src/App.tsx",
-              lineNumber: 1169,
+              lineNumber: 1200,
               columnNumber: 17
             },
             this
           )
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1151,
+          lineNumber: 1182,
           columnNumber: 15
         }, this)
       ] }, void 0, true, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1127,
+        lineNumber: 1158,
         columnNumber: 13
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
@@ -135071,14 +135189,14 @@ function App() {
         false,
         {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1180,
+          lineNumber: 1211,
           columnNumber: 11
         },
         this
       )
     ] }, void 0, true, {
       fileName: "/app/applet/src/App.tsx",
-      lineNumber: 1124,
+      lineNumber: 1155,
       columnNumber: 9
     }, this),
     /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
@@ -135096,7 +135214,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1210,
+        lineNumber: 1241,
         columnNumber: 7
       },
       this
@@ -135119,7 +135237,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1221,
+        lineNumber: 1252,
         columnNumber: 7
       },
       this
@@ -135140,7 +135258,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1235,
+        lineNumber: 1266,
         columnNumber: 7
       },
       this
@@ -135155,7 +135273,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1247,
+        lineNumber: 1278,
         columnNumber: 7
       },
       this
@@ -135172,7 +135290,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1253,
+        lineNumber: 1284,
         columnNumber: 7
       },
       this
@@ -135198,14 +135316,14 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1261,
+        lineNumber: 1292,
         columnNumber: 7
       },
       this
     )
   ] }, void 0, true, {
     fileName: "/app/applet/src/App.tsx",
-    lineNumber: 1069,
+    lineNumber: 1100,
     columnNumber: 5
   }, this);
 }

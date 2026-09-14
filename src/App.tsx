@@ -801,6 +801,7 @@ export default function App() {
 
   // Clear Model Cache
   const handleClearModelCache = async () => {
+    // 1. Clear Cache API (Standard)
     if (typeof window !== 'undefined' && 'caches' in window) {
       const keys = await caches.keys();
       for (const k of keys) {
@@ -809,8 +810,38 @@ export default function App() {
         }
       }
     }
+
+    // 2. Clear IndexedDB caches (Safari/Fallback)
+    if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+      try {
+        const dbs = await indexedDB.databases();
+        for (const db of dbs) {
+          if (db.name && (db.name.includes('webllm') || db.name.includes('tvmjs') || db.name.includes('mlc'))) {
+            if (db.name !== 'local_webllm_chat_db') {
+              indexedDB.deleteDatabase(db.name);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('IDB clear error:', e);
+      }
+    }
+
+    // 3. Clear OPFS caches (High Performance Backend)
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.getDirectory) {
+      try {
+        const root = await navigator.storage.getDirectory();
+        await root.removeEntry("tvmjs-opfs-store", { recursive: true }).catch(() => {});
+      } catch (e) {
+        console.warn('OPFS clear error:', e);
+      }
+    }
+
     setIsCached(false);
     setParamStatus({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
+    
+    // Give browser storage manager a moment to garbage collect before measuring
+    await new Promise(resolve => setTimeout(resolve, 1000));
     await runDiagnostics();
   };
 

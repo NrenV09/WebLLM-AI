@@ -19,12 +19,17 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
   const [stage, setStage] = useState<'idle' | 'preparing' | 'generating' | 'done' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [downloadInfo, setDownloadInfo] = useState<{ url: string; filename: string } | null>(null);
 
   // Auto-trigger export when opened
   useEffect(() => {
     if (!isOpen || !session) {
       setStage('idle');
       setErrorMessage(null);
+      if (downloadInfo) {
+        URL.revokeObjectURL(downloadInfo.url);
+        setDownloadInfo(null);
+      }
       return;
     }
 
@@ -33,13 +38,18 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
     const runExport = async () => {
       try {
         setErrorMessage(null);
-        await exportChatSessionToPdf(
+        const { blob, filename } = await exportChatSessionToPdf(
           session,
           preprocessLatex,
           (stg) => {
             if (isMounted) setStage(stg);
           }
         );
+        
+        if (isMounted) {
+          const url = URL.createObjectURL(blob);
+          setDownloadInfo({ url, filename });
+        }
       } catch (err: any) {
         console.error('PDF Export error:', err);
         if (isMounted) {
@@ -56,12 +66,27 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
     };
   }, [isOpen, session, preprocessLatex]);
 
+  // Clean up object URL when component unmounts completely
+  useEffect(() => {
+    return () => {
+      if (downloadInfo) {
+        URL.revokeObjectURL(downloadInfo.url);
+      }
+    };
+  }, [downloadInfo]);
+
   if (!isOpen || !session) return null;
 
   const handleManualDownload = async () => {
     try {
       setErrorMessage(null);
-      await exportChatSessionToPdf(session, preprocessLatex, setStage);
+      if (downloadInfo) {
+        URL.revokeObjectURL(downloadInfo.url);
+        setDownloadInfo(null);
+      }
+      const { blob, filename } = await exportChatSessionToPdf(session, preprocessLatex, setStage);
+      const url = URL.createObjectURL(blob);
+      setDownloadInfo({ url, filename });
     } catch (err: any) {
       setStage('error');
       setErrorMessage(err?.message || 'Download failed. Please try browser print.');
@@ -147,7 +172,7 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
               <div className="text-[11px] text-white/40 mt-0.5">
                 {stage === 'preparing' && 'Normalizing KaTeX formulas, symbols, and equations'}
                 {stage === 'generating' && 'Packaging vector and typography layout into .pdf'}
-                {stage === 'done' && 'Your browser should start downloading the file automatically'}
+                {stage === 'done' && 'Click the green button below to save the file to your device.'}
                 {stage === 'error' && (errorMessage || 'Please try again or use the browser print option')}
               </div>
             </div>
@@ -168,20 +193,31 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-2.5">
-          <button
-            type="button"
-            id="download-pdf-again-btn"
-            onClick={handleManualDownload}
-            disabled={isWorking}
-            className="w-full flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-blue-500/25 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-          >
-            {isWorking ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
+          {stage === 'done' && downloadInfo ? (
+            <a
+              href={downloadInfo.url}
+              download={downloadInfo.filename}
+              className="w-full flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-500/25 transition-all cursor-pointer active:scale-95"
+            >
               <FileDown className="w-3.5 h-3.5" />
-            )}
-            <span>{stage === 'done' ? 'Download PDF again' : 'Download PDF'}</span>
-          </button>
+              <span>Save File Now</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              id="download-pdf-again-btn"
+              onClick={handleManualDownload}
+              disabled={isWorking}
+              className="w-full flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-blue-500/25 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+            >
+              {isWorking ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileDown className="w-3.5 h-3.5" />
+              )}
+              <span>Download PDF</span>
+            </button>
+          )}
 
           <button
             type="button"
