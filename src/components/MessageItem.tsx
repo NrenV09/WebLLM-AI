@@ -3,7 +3,7 @@ import Markdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
-import { Sparkles, Copy, Check, Activity, Clock, Zap, Cpu } from 'lucide-react';
+import { Sparkles, Copy, Check, Activity, Clock, Zap, Cpu, Trash2 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { ThinkingContainer } from './ThinkingContainer';
 import { CodeBlock } from './CodeBlock';
@@ -15,6 +15,7 @@ interface MessageItemProps {
   isStreaming: boolean;
   isLast: boolean;
   preprocessLatex: (content: string) => string;
+  onDeleteMessage?: (id: string) => void;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -22,9 +23,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   index,
   isStreaming,
   isLast,
-  preprocessLatex
+  preprocessLatex,
+  onDeleteMessage
 }) => {
   const [copied, setCopied] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   const isUser = message.role === 'user';
   const isStreamingThis = isStreaming && isLast && !isUser;
@@ -44,11 +47,36 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     }
   };
 
+  const handleDelete = () => {
+    if (showConfirmDelete) {
+      if (message.id && onDeleteMessage) {
+        onDeleteMessage(message.id);
+      }
+    } else {
+      setShowConfirmDelete(true);
+      setTimeout(() => setShowConfirmDelete(false), 3000);
+    }
+  };
+
   if (isUser) {
     return (
-      <div className="flex justify-end w-full my-4 px-1 sm:px-2">
-        <div className="max-w-[85%] sm:max-w-[75%] bg-white/[0.06] backdrop-blur-md text-[#e6e8ec] px-5 py-3.5 rounded-3xl rounded-tr-md text-[15px] leading-relaxed shadow-lg shadow-black/20 border border-white/[0.08] break-words whitespace-pre-wrap select-text transition-all duration-200 hover:border-white/[0.14]">
-          {message.content}
+      <div className="flex justify-end w-full my-4 px-1 sm:px-2 group">
+        <div className="max-w-[85%] sm:max-w-[75%] flex flex-col items-end gap-1 relative">
+          <div className="bg-white/[0.06] backdrop-blur-md text-[#e6e8ec] px-5 py-3.5 rounded-3xl rounded-tr-md text-[15px] leading-relaxed shadow-lg shadow-black/20 border border-white/[0.08] break-words whitespace-pre-wrap select-text transition-all duration-200 hover:border-white/[0.14]">
+            {message.content}
+          </div>
+          {onDeleteMessage && message.id && (
+            <button
+              onClick={handleDelete}
+              className={`text-[10px] flex items-center gap-1 mt-1 transition-all duration-200 ${
+                showConfirmDelete ? 'text-rose-400 opacity-100' : 'text-white/30 opacity-0 group-hover:opacity-100 hover:text-white/70 cursor-pointer'
+              }`}
+              title="Delete message"
+            >
+              <Trash2 className="w-3 h-3" />
+              {showConfirmDelete ? 'Click to confirm' : 'Delete'}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -158,6 +186,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 <Clock className="w-3 h-3 text-white/40" />
                 <span>Duration: {(message.metrics.durationMs / 1000).toFixed(1)}s</span>
               </span>
+            )}
+            
+            {onDeleteMessage && message.id && (
+              <button
+                onClick={handleDelete}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors ml-auto ${
+                  showConfirmDelete ? 'text-rose-400 bg-rose-500/10' : 'text-white/40 hover:text-white/80 hover:bg-white/[0.08] cursor-pointer opacity-0 group-hover:opacity-100'
+                }`}
+                title="Delete message"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="text-[11px]">{showConfirmDelete ? 'Confirm' : 'Delete'}</span>
+              </button>
             )}
           </div>
         )}

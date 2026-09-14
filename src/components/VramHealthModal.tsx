@@ -31,6 +31,7 @@ interface VramHealthModalProps {
   onRefresh: () => Promise<any>;
   onRunHealthCheck: () => Promise<{ success: boolean; latencyMs: number; error?: string }>;
   onReloadPipeline: () => Promise<void>;
+  onUnloadPipeline: () => Promise<void>;
 }
 
 export const VramHealthModal: React.FC<VramHealthModalProps> = ({
@@ -45,7 +46,8 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
   executionMode,
   onRefresh,
   onRunHealthCheck,
-  onReloadPipeline
+  onReloadPipeline,
+  onUnloadPipeline
 }) => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -438,26 +440,40 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
           </div>
 
           {/* Quick Troubleshooting Actions */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
+          <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="space-y-0.5">
               <span className="font-medium text-white text-xs">Need a fresh start?</span>
               <p className="text-[11px] text-white/40">
-                Reload the WebGPU pipeline from cache without re-downloading model weights.
+                Reload the WebGPU pipeline from cache, or unload it entirely to free up VRAM for other apps.
               </p>
             </div>
-            <button
-              type="button"
-              id="vram-force-reload-btn"
-              onClick={async () => {
-                onClose();
-                await onReloadPipeline();
-              }}
-              disabled={isLoading}
-              className="px-3 py-2 rounded-xl glass-button text-xs text-white/80 hover:text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reload Pipeline</span>
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={async () => {
+                  onClose();
+                  await onUnloadPipeline();
+                }}
+                disabled={isLoading || !isEngineReady}
+                className="flex-1 sm:flex-none px-3 py-2 rounded-xl glass-button text-xs text-white/80 hover:text-white flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>Unload</span>
+              </button>
+              <button
+                type="button"
+                id="vram-force-reload-btn"
+                onClick={async () => {
+                  onClose();
+                  await onReloadPipeline();
+                }}
+                disabled={isLoading}
+                className="flex-1 sm:flex-none px-3 py-2 rounded-xl glass-button text-xs text-white/80 hover:text-white flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reload</span>
+              </button>
+            </div>
           </div>
         </div>
 

@@ -65,119 +65,100 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className="w-full relative">
-      {/* Floating Dynamic Capsule Dock */}
-      <div className="relative rounded-[28px] bg-[#181a20]/85 backdrop-blur-xl border border-white/[0.1] shadow-2xl shadow-black/60 p-2 sm:p-3 transition-all duration-200 focus-within:border-[#a8c7fa]/50 focus-within:ring-1 focus-within:ring-[#a8c7fa]/30">
-        <div className="flex flex-col gap-1.5">
-          {/* Main Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            placeholder={isGenerating ? "Model is generating locally on WebGPU..." : "Ask anything... (Runs 100% locally & private)"}
-            rows={1}
-            className="w-full bg-transparent text-[#e6e8ec] px-3 py-1.5 focus:outline-none resize-none max-h-48 min-h-[44px] overflow-y-auto text-[15px] placeholder-white/35 leading-relaxed font-sans"
-          />
+      {/* Gemini-Style Minimalist Floating Capsule */}
+      <div className="relative rounded-[32px] bg-[#22242a]/80 backdrop-blur-xl border border-white/[0.05] shadow-[0_2px_12px_rgba(0,0,0,0.4)] p-1.5 transition-all duration-200 focus-within:bg-[#282a32] focus-within:border-white/[0.1] focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.6)] flex items-end gap-2">
+        
+        {/* Main Textarea */}
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder={isGenerating ? "Model is generating locally on WebGPU..." : "Ask anything... (Runs locally)"}
+          rows={1}
+          className="flex-1 bg-transparent text-[#e6e8ec] px-4 py-2.5 focus:outline-none resize-none max-h-48 min-h-[44px] overflow-y-auto text-base placeholder-white/40 leading-relaxed font-sans scrollbar-hide"
+        />
 
-          {/* Action Row inside capsule: Model Switcher right beside Send Prompt Button */}
-          <div className="flex items-center justify-end gap-2 pt-1 px-1">
-            {/* Model Selector Dropdown Pill (Right beside Send Button) */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                type="button"
-                id="model-switcher-btn"
-                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                disabled={isGenerating}
-                className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-xs font-medium text-white/90 hover:text-white border border-white/[0.08] transition-all duration-200 cursor-pointer disabled:opacity-50 active:scale-95"
-                title="Select local model"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#a8c7fa] shrink-0" />
-                <span className="max-w-[130px] sm:max-w-[190px] truncate">{currentModel?.name || selectedModel}</span>
-                <span className="text-[10px] text-white/40 font-mono hidden sm:inline">{currentModel?.vramMB}MB</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-white/40 transition-transform duration-200 shrink-0 ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
+        {/* Action Controls right beside the textarea in the same row */}
+        <div className="flex items-center gap-1.5 pb-1 pr-1 shrink-0">
+          {/* Model Selector Dropdown Pill */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              id="model-switcher-btn"
+              onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+              disabled={isGenerating}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-[11px] font-medium text-white/80 hover:text-white border border-white/[0.03] transition-all duration-200 cursor-pointer disabled:opacity-50 active:scale-95"
+              title="Select local model"
+            >
+              <Sparkles className="w-3 h-3 text-[#a8c7fa] shrink-0" />
+              <span className="max-w-[80px] sm:max-w-[120px] truncate">{currentModel?.name || selectedModel}</span>
+              <ChevronDown className={`w-3 h-3 text-white/40 transition-transform duration-200 shrink-0 ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-              {/* Model Menu Dropdown */}
-              {isModelDropdownOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-72 bg-[#12141a]/95 border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden py-1.5 z-50 backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
-                  <div className="px-3.5 py-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/[0.06] flex items-center justify-between">
-                    <span>Local Models (WebGPU)</span>
-                    <span className="text-emerald-400 font-mono text-[10px]">0 API calls</span>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto py-1">
-                    {models.map((m) => {
-                      const isSelected = m.id === selectedModel;
-                      return (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            onSelectModel(m.id);
-                            setIsModelDropdownOpen(false);
-                          }}
-                          className={`w-full px-3.5 py-2.5 flex items-center justify-between text-left transition-colors cursor-pointer ${
-                            isSelected ? 'bg-blue-500/15 text-white font-medium border-l-2 border-[#a8c7fa]' : 'text-white/80 hover:bg-white/[0.05]'
-                          }`}
-                        >
-                          <div className="flex flex-col">
-                            <span className="text-xs">{m.name}</span>
-                            <span className="text-[11px] text-white/40">{m.sizeLabel || `${m.vramMB} MB VRAM`}</span>
-                          </div>
-                          {isSelected && (
-                            <span className="w-2 h-2 rounded-full bg-[#a8c7fa] shadow-[0_0_8px_rgba(168,199,250,0.8)]"></span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+            {/* Model Menu Dropdown */}
+            {isModelDropdownOpen && (
+              <div className="absolute bottom-full right-0 mb-2 w-72 bg-[#1b1d24]/95 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden py-1.5 z-50 backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="px-3.5 py-2 text-[11px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/[0.04] flex items-center justify-between">
+                  <span>Local Models (WebGPU)</span>
                 </div>
-              )}
-            </div>
-
-            {/* Dynamic Morphing Send / Stop Button */}
-            {isGenerating ? (
-              <button
-                type="button"
-                id="stop-prompt-btn"
-                onClick={onStop}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-rose-500/90 hover:bg-rose-500 text-white transition-all duration-200 active:scale-90 cursor-pointer shadow-lg shadow-rose-500/25 shrink-0"
-                title="Stop generating"
-              >
-                <Square className="w-3.5 h-3.5 fill-white" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                id="send-prompt-btn"
-                onClick={() => onSend()}
-                disabled={!input.trim() || disabled}
-                className={`flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 cursor-pointer shrink-0 ${
-                  input.trim() && !disabled
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-lg shadow-blue-500/25 text-white hover:from-blue-400 hover:to-indigo-400 active:scale-95'
-                    : 'bg-white/[0.05] text-white/30 border border-white/[0.05] cursor-not-allowed opacity-60'
-                }`}
-                title="Send message (Enter)"
-              >
-                <Send className="w-4 h-4 ml-0.5" />
-              </button>
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {models.map((m) => {
+                    const isSelected = m.id === selectedModel;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          onSelectModel(m.id);
+                          setIsModelDropdownOpen(false);
+                        }}
+                        className={`w-full px-3.5 py-2.5 flex items-center justify-between text-left transition-colors cursor-pointer ${
+                          isSelected ? 'bg-blue-500/10 text-white font-medium border-l-2 border-[#a8c7fa]' : 'text-white/70 hover:bg-white/[0.05]'
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-[13px]">{m.name}</span>
+                          <span className="text-[11px] text-white/40">{m.sizeLabel || `${m.vramMB} MB VRAM`}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#a8c7fa] shadow-[0_0_6px_rgba(168,199,250,0.8)]"></span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Minimal Status Footer */}
-      <div className="flex items-center justify-between px-4 pt-2.5 text-[11px] text-[#9aa0a6] select-none">
-        <div className="flex items-center gap-1.5 text-white/50">
-          <Cpu className="w-3.5 h-3.5 text-[#a8c7fa]" />
-          <span>WebGPU • {isWorkerActive ? 'Worker Thread Active' : 'Ready'}</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-white/60">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)] animate-pulse"></span>
-            <span className="hidden sm:inline">100% On-Device & Private •</span>
-            <span className="text-emerald-300 font-medium">Offline Ready</span>
-          </span>
+          {/* Dynamic Morphing Send / Stop Button */}
+          {isGenerating ? (
+            <button
+              type="button"
+              id="stop-prompt-btn"
+              onClick={onStop}
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-white text-black transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-md shrink-0"
+              title="Stop generating"
+            >
+              <Square className="w-3 h-3 fill-black" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              id="send-prompt-btn"
+              onClick={() => onSend()}
+              disabled={!input.trim() || disabled}
+              className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 cursor-pointer shrink-0 ${
+                input.trim() && !disabled
+                  ? 'bg-white text-black hover:bg-[#f0f0f0] shadow-md hover:scale-105 active:scale-95'
+                  : 'bg-white/[0.1] text-white/30 cursor-not-allowed opacity-60'
+              }`}
+              title="Send message (Enter)"
+            >
+              <Send className="w-3.5 h-3.5 ml-0.5" />
+            </button>
+          )}
         </div>
       </div>
     </div>

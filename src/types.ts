@@ -40,6 +40,7 @@ export interface AISettings {
   contextWindowSize?: number; // 2048, 3072, 4096, 8192, 12000
   phi4AntiLooping?: boolean;
   ipadOptimization?: boolean;
+  appleSiliconOptimized?: boolean;
 }
 
 export interface Diagnostics {

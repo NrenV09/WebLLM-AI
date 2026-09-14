@@ -66,12 +66,14 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      exportChatsAsJSON(sessions);
+      await exportChatsAsJSON(sessions);
       setStatusMsg({ type: 'success', text: `Exported ${sessions.length} conversations to JSON successfully.` });
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: `Export failed: ${e.message}` });
+      if (e.name !== 'AbortError') {
+        setStatusMsg({ type: 'error', text: `Export failed: ${e.message}` });
+      }
     }
   };
 

@@ -378,12 +378,12 @@ export async function exportChatSessionToPdf(
   // 1. Create temporary off-screen container in DOM
   const container = document.createElement('div');
   container.id = `pdf-export-temp-${Date.now()}`;
-  container.style.position = 'fixed';
-  container.style.left = '-9999px';
+  container.style.position = 'absolute';
+  container.style.left = '0';
   container.style.top = '0';
   container.style.width = '794px'; // A4 pixel width at 96 DPI
   container.style.background = '#ffffff';
-  container.style.zIndex = '-9999';
+  container.style.zIndex = '-9999'; // Render behind the app
   container.style.boxSizing = 'border-box';
   document.body.appendChild(container);
 

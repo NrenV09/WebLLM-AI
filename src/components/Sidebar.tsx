@@ -254,10 +254,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           group relative flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all duration-200 cursor-pointer overflow-hidden select-none
                           ${isActive 
                             ? 'bg-white/[0.08] text-white font-medium border border-white/[0.08] shadow-xs' 
-                            : 'text-white/70 hover:bg-white/[0.04] hover:text-white'
+                            : 'text-white/70 hover:bg-white/[0.04] hover:text-white border border-transparent'
                           }
                         `}
                       >
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] bg-blue-400 rounded-r-full" />
+                        )}
                         {isEditing ? (
                           <div className="flex items-center gap-1 w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
                             <input

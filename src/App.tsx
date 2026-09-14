@@ -59,13 +59,18 @@ const MODELS: ModelInfo[] = AVAILABLE_MODELS;
 // Helper to normalize LaTeX expressions for KaTeX
 function preprocessLatex(content: string): string {
   if (!content) return '';
-  return content
+  let processed = content
     .replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`)
     .replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`)
     .replace(/\\\[/g, '$$')
     .replace(/\\\]/g, '$$')
     .replace(/\\\(/g, '$')
     .replace(/\\\)/g, '$');
+    
+  // Convert non-standard \box to \boxed for KaTeX
+  processed = processed.replace(/\\box\{/g, '\\boxed{');
+  
+  return processed;
 }
 
 function parseProgressTelemetry(report: InitProgressReport, modelVram: number): DetailedProgress {
@@ -235,6 +240,56 @@ export default function App() {
     cachedBytes: number;
   }>({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
   const initAbortControllerRef = useRef<AbortController | null>(null);
+
+  // Inactivity tracking
+  const lastActivityRef = useRef<number>(Date.now());
+  const inactivityTimerRef = useRef<any>(null);
+
+  // Unload WebGPU pipeline completely
+  const handleUnloadPipeline = async () => {
+    if (engineRef.current) {
+      try {
+        await engineRef.current.unload();
+      } catch (e) {
+        console.warn('Error unloading engine:', e);
+      }
+      engineRef.current = null;
+    }
+    if (initAbortControllerRef.current) {
+      initAbortControllerRef.current.abort();
+      initAbortControllerRef.current = null;
+    }
+    setStatus('initial');
+    setIsCached(false);
+    setVramStats(null);
+  };
+
+  useEffect(() => {
+    // Check for inactivity every minute
+    inactivityTimerRef.current = setInterval(() => {
+      const now = Date.now();
+      const idleTimeMs = now - lastActivityRef.current;
+      // 15 minutes = 15 * 60 * 1000 = 900000 ms
+      if (idleTimeMs > 900000 && engineRef.current && status === 'ready' && !isGenerating) {
+        console.log('Unloading model due to 15 minutes of inactivity.');
+        handleUnloadPipeline();
+      }
+    }, 60000);
+    
+    const updateActivity = () => { lastActivityRef.current = Date.now(); };
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('click', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
+
+    return () => {
+      clearInterval(inactivityTimerRef.current);
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+    };
+  }, [status, isGenerating]);
 
   const runDiagnostics = async () => {
     const ua = navigator.userAgent || '';
@@ -936,6 +991,30 @@ export default function App() {
     }
   };
 
+  // Delete Individual Message
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!activeSession) return;
+    const updatedMessages = activeSession.messages.filter(m => m.id !== messageId);
+    
+    const updatedSession: ChatSession = {
+      ...activeSession,
+      messages: updatedMessages,
+      updatedAt: Date.now()
+    };
+
+    setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
+    await saveSession(updatedSession);
+
+    // Optionally reset chat cache so the deleted message is no longer in KV-cache
+    if (engineRef.current) {
+      try {
+        await engineRef.current.resetChat();
+      } catch (e) {
+        console.warn('resetChat error during message deletion:', e);
+      }
+    }
+  };
+
   const handleStop = async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -1122,6 +1201,7 @@ export default function App() {
             status={status}
             isModelLoaded={status === 'ready'}
             onLoadModel={() => initEngine(selectedModel)}
+            onDeleteMessage={handleDeleteMessage}
           />
         </div>
       )}
@@ -1191,6 +1271,7 @@ export default function App() {
         onRefresh={fetchVramStats}
         onRunHealthCheck={runModelHealthCheck}
         onReloadPipeline={handleReloadPipeline}
+        onUnloadPipeline={handleUnloadPipeline}
       />
     </div>
   );

@@ -425,6 +425,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <li><strong className="text-white/80">Permanent Shard Cache:</strong> Model weights stored locally in browser Cache API with zero re-downloads.</li>
                   </ul>
                 </div>
+
+                <div className="p-4 rounded-2xl glass-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-medium text-white">Apple Silicon Optimization (M-Series)</div>
+                      <div className="text-[11px] text-white/40">Optimizes unified memory allocation and graceful unloading workflows on Apple Silicon devices to prevent out-of-memory driver crashes.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLocal({ ...local, appleSiliconOptimized: !local.appleSiliconOptimized })}
+                      className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${
+                        local.appleSiliconOptimized !== false ? 'bg-white' : 'bg-white/10'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full transition-transform duration-200 ${
+                        local.appleSiliconOptimized !== false ? 'bg-black translate-x-4' : 'bg-white/50 translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
               </div>
             </>
           )}

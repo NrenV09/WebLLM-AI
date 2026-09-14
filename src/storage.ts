@@ -13,9 +13,10 @@ export const DEFAULT_SETTINGS: AISettings = {
   top_p: 0.9,
   repetition_penalty: 1.08,
   max_tokens: 4096,
-  contextWindowSize: 3072,
+  contextWindowSize: 32768, // Allow up to 32K context by default if model supports it
   phi4AntiLooping: true,
   ipadOptimization: true,
+  appleSiliconOptimized: true,
   systemPrompt: 'You are a helpful, brilliant, and precise AI assistant. When analyzing complex problems, performing multi-step reasoning, or writing mathematical derivations or code, wrap your internal reasoning in <think>...</think> tags before providing the final answer.\n\nSTRICT LATEX FORMATTING RULES:\n1. Inline math: $...$ (e.g. $E = mc^2$)\n2. Display block math: $$...$$ on separate lines.'
 };
 
@@ -255,8 +256,33 @@ function loadSettingsFromLocalStorage(): AISettings {
   }
 }
 
-export function exportChatsAsJSON(sessions: ChatSession[]): void {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sessions, null, 2));
+export async function exportChatsAsJSON(sessions: ChatSession[]): Promise<void> {
+  const jsonContent = JSON.stringify(sessions, null, 2);
+  
+  if ('showSaveFilePicker' in window) {
+    try {
+      const fileHandle = await (window as any).showSaveFilePicker({
+        suggestedName: `local_ai_chats_${new Date().toISOString().slice(0, 10)}.json`,
+        types: [{
+          description: 'JSON Files',
+          accept: { 'application/json': ['.json'] },
+        }],
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(jsonContent);
+      await writable.close();
+      return;
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('File System Access API failed:', err);
+      } else {
+        return; // User cancelled
+      }
+    }
+  }
+
+  // Fallback to traditional download
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonContent);
   const downloadAnchor = document.createElement('a');
   downloadAnchor.setAttribute("href", dataStr);
   downloadAnchor.setAttribute("download", `local_ai_chats_${new Date().toISOString().slice(0,10)}.json`);

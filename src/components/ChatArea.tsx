@@ -222,9 +222,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto min-h-0 relative p-3 sm:p-4 md:p-6"
+            className="flex-1 overflow-y-auto min-h-0 relative px-2 sm:px-4"
           >
-            <div className="max-w-3xl mx-auto flex flex-col pb-8">
+            <div className="max-w-4xl mx-auto flex flex-col pt-2 pb-4">
               {messages.map((m, idx) => (
                 <MessageItem
                   key={m.id || idx}
@@ -233,14 +233,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   isStreaming={isTyping}
                   isLast={idx === messages.length - 1}
                   preprocessLatex={preprocessLatex}
+                  onDeleteMessage={onDeleteMessage}
                 />
               ))}
             </div>
           </div>
 
           {/* Docked Chat Input Capsule Container */}
-          <div className="px-3 py-3 sm:px-4 sm:py-3.5 pb-4 sm:pb-5 flex-shrink-0 bg-black border-t border-white/[0.08] z-20 shadow-[0_-16px_32px_rgba(0,0,0,0.8)]">
-            <div className="max-w-3xl mx-auto w-full">
+          <div className="px-2 py-2 sm:px-4 sm:py-3 flex-shrink-0 bg-black border-t border-white/[0.08] z-20 shadow-[0_-8px_24px_rgba(0,0,0,0.6)]">
+            <div className="max-w-4xl mx-auto w-full">
               <ChatInput
                 input={input}
                 setInput={setInput}
