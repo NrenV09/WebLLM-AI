@@ -801,29 +801,51 @@ export default function App() {
 
   // Clear Model Cache
   const handleClearModelCache = async () => {
+    // 0. Use official WebLLM cleanup for all registered models
+    try {
+      const { deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm');
+      for (const model of registeredModels) {
+        await deleteModelAllInfoInCache(model.id).catch(() => {});
+      }
+    } catch(e) {
+      console.warn('WebLLM official cleanup failed:', e);
+    }
+
     // 1. Clear Cache API (Standard)
     if (typeof window !== 'undefined' && 'caches' in window) {
-      const keys = await caches.keys();
-      for (const k of keys) {
-        if (k.includes('webllm') || k.includes('tvmjs') || k.includes('mlc') || k.includes('huggingface')) {
-          await caches.delete(k);
+      try {
+        const keys = await caches.keys();
+        for (const k of keys) {
+          if (k.includes('webllm') || k.includes('tvmjs') || k.includes('mlc') || k.includes('huggingface') || k.includes('model')) {
+            await caches.delete(k);
+          }
         }
+      } catch (e) {
+        console.warn('Cache API clear error:', e);
       }
     }
 
-    // 2. Clear IndexedDB caches (Safari/Fallback)
-    if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+    // 2. Clear IndexedDB caches unconditionally (Safari/Fallback compatibility)
+    if (typeof window !== 'undefined' && 'indexedDB' in window) {
+      const knownIDBs = ['webllm/model', 'webllm/config', 'webllm/wasm', 'webllm/chatConfig', 'tvmjs'];
+      for (const dbName of knownIDBs) {
+        try { indexedDB.deleteDatabase(dbName); } catch(e) {}
+      }
+      
+      // Also try dynamic iteration if supported
       try {
-        const dbs = await indexedDB.databases();
-        for (const db of dbs) {
-          if (db.name && (db.name.includes('webllm') || db.name.includes('tvmjs') || db.name.includes('mlc'))) {
-            if (db.name !== 'local_webllm_chat_db') {
-              indexedDB.deleteDatabase(db.name);
+        if (indexedDB.databases) {
+          const dbs = await indexedDB.databases();
+          for (const db of dbs) {
+            if (db.name && (db.name.includes('webllm') || db.name.includes('tvmjs') || db.name.includes('mlc'))) {
+              if (db.name !== 'local_webllm_chat_db') {
+                indexedDB.deleteDatabase(db.name);
+              }
             }
           }
         }
       } catch (e) {
-        console.warn('IDB clear error:', e);
+        console.warn('Dynamic IDB clear error:', e);
       }
     }
 
@@ -841,7 +863,7 @@ export default function App() {
     setParamStatus({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
     
     // Give browser storage manager a moment to garbage collect before measuring
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     await runDiagnostics();
   };
 

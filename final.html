@@ -11,7 +11,7 @@
     <meta property="og:description" content="An offline, fully-functional AI chat using WebGPU right in the browser." />
     <link rel="manifest" href="./manifest.json" />
     <title>Local Browser AI</title>
-    <script type="module" crossorigin src="./assets/index-SOnstLd2.js"></script>
+    <script type="module" crossorigin src="./assets/index-ethLPqD3.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-D5snQxr_.css">
   
     <style>
@@ -27074,6 +27074,88 @@ function requireClient() {
   return client.exports;
 }
 var clientExports = requireClient();
+const scriptRel = "modulepreload";
+const assetsURL = function(dep, importerUrl) {
+  return new URL(dep, importerUrl).href;
+};
+const seen = {};
+const __vitePreload = function preload(baseModule, deps, importerUrl) {
+  let promise = Promise.resolve();
+  if (deps && deps.length > 0) {
+    let allSettled2 = function(promises) {
+      return Promise.all(
+        promises.map(
+          (p2) => Promise.resolve(p2).then(
+            (value) => ({ status: "fulfilled", value }),
+            (reason) => ({ status: "rejected", reason })
+          )
+        )
+      );
+    };
+    const links = document.getElementsByTagName("link");
+    const cspNonceMeta = document.querySelector(
+      "meta[property=csp-nonce]"
+    );
+    const cspNonce = (cspNonceMeta == null ? void 0 : cspNonceMeta.nonce) || (cspNonceMeta == null ? void 0 : cspNonceMeta.getAttribute("nonce"));
+    promise = allSettled2(
+      deps.map((dep) => {
+        dep = assetsURL(dep, importerUrl);
+        if (dep in seen) return;
+        seen[dep] = true;
+        const isCss = dep.endsWith(".css");
+        const cssSelector = isCss ? '[rel="stylesheet"]' : "";
+        const isBaseRelative = !!importerUrl;
+        if (isBaseRelative) {
+          for (let i = links.length - 1; i >= 0; i--) {
+            const link22 = links[i];
+            if (link22.href === dep && (!isCss || link22.rel === "stylesheet")) {
+              return;
+            }
+          }
+        } else if (document.querySelector(`link[href="${dep}"]${cssSelector}`)) {
+          return;
+        }
+        const link2 = document.createElement("link");
+        link2.rel = isCss ? "stylesheet" : scriptRel;
+        if (!isCss) {
+          link2.as = "script";
+        }
+        link2.crossOrigin = "";
+        link2.href = dep;
+        if (cspNonce) {
+          link2.setAttribute("nonce", cspNonce);
+        }
+        document.head.appendChild(link2);
+        if (isCss) {
+          return new Promise((res, rej) => {
+            link2.addEventListener("load", res);
+            link2.addEventListener(
+              "error",
+              () => rej(new Error(`Unable to preload CSS for ${dep}`))
+            );
+          });
+        }
+      })
+    );
+  }
+  function handlePreloadError(err) {
+    const e = new Event("vite:preloadError", {
+      cancelable: true
+    });
+    e.payload = err;
+    window.dispatchEvent(e);
+    if (!e.defaultPrevented) {
+      throw err;
+    }
+  }
+  return promise.then((res) => {
+    for (const item of res || []) {
+      if (item.status !== "rejected") continue;
+      handlePreloadError(item.reason);
+    }
+    return baseModule().catch(handlePreloadError);
+  });
+};
 const require$$3 = "MLC_DUMMY_REQUIRE_VAR";
 const require$$4 = "MLC_DUMMY_REQUIRE_VAR";
 function getDefaultExportFromCjs(x) {
@@ -27411,6 +27493,12 @@ class WebGPUNotAvailableError extends Error {
     this.name = "WebGPUNotAvailableError";
   }
 }
+class WebGPUNotFoundError extends Error {
+  constructor() {
+    super("Cannot find WebGPU in the environment");
+    this.name = "WebGPUNotFoundError";
+  }
+}
 class ModelNotLoadedError extends Error {
   constructor(requestName) {
     super(`Model not loaded before trying to complete ${requestName}. Please ensure you have called MLCEngine.reload(model) to load the model before initiating APIs, or initialize your engine using CreateMLCEngine() with a valid model configuration.`);
@@ -27570,6 +27658,24 @@ class ContextWindowSizeExceededError extends Error {
     super(`Prompt tokens exceed context window size: number of prompt tokens: ${numPromptTokens}; context window size: ${contextWindowSize}
 Consider shortening the prompt, or increase \`context_window_size\`, or using sliding window via \`sliding_window_size\`.`);
     this.name = "ContextWindowSizeExceededError";
+  }
+}
+class NonWorkerEnvironmentError extends Error {
+  constructor(className) {
+    super(`${className} must be created in the service worker script.`);
+    this.name = "NonWorkerEnvironmentError";
+  }
+}
+class NoServiceWorkerAPIError extends Error {
+  constructor() {
+    super("Service worker API is not available in your browser. Please ensure that your browser supports service workers and that you are using a secure context (HTTPS). Check the browser compatibility and ensure that service workers are not disabled in your browser settings.");
+    this.name = "NoServiceWorkerAPIError";
+  }
+}
+class ServiceWorkerInitializationError extends Error {
+  constructor() {
+    super("Service worker failed to initialize. This could be due to a failure in the service worker registration process or because the service worker is not active. Please refresh the page to retry initializing the service worker.");
+    this.name = "ServiceWorkerInitializationError";
   }
 }
 class StreamingCountError extends Error {
@@ -29706,6 +29812,9 @@ function verifyIntegrity(data_1, expectedSRI_1, url_1) {
       throw new IntegrityError(url, expectedSRI, actualSRI);
     }
   });
+}
+function isValidSRI(sri) {
+  return parseSRI(sri) !== null;
 }
 var lib$5 = { exports: {} };
 var _rollup_plugin_ignore_empty_module_placeholder = {};
@@ -37982,9 +38091,9 @@ function requireLib$1() {
           };
           var throwUnboundTypeError = (message, types2) => {
             var unboundTypes = [];
-            var seen = {};
+            var seen2 = {};
             function visit2(type) {
-              if (seen[type]) {
+              if (seen2[type]) {
                 return;
               }
               if (registeredTypes[type]) {
@@ -37995,7 +38104,7 @@ function requireLib$1() {
                 return;
               }
               unboundTypes.push(type);
-              seen[type] = true;
+              seen2[type] = true;
             }
             types2.forEach(visit2);
             throw new UnboundTypeError(`${message}: ` + unboundTypes.map(getTypeName).join([", "]));
@@ -47003,9 +47112,9 @@ function requireLib() {
           };
           var throwUnboundTypeError = (message, types2) => {
             var unboundTypes = [];
-            var seen = {};
+            var seen2 = {};
             function visit2(type) {
-              if (seen[type]) {
+              if (seen2[type]) {
                 return;
               }
               if (registeredTypes[type]) {
@@ -47016,7 +47125,7 @@ function requireLib() {
                 return;
               }
               unboundTypes.push(type);
-              seen[type] = true;
+              seen2[type] = true;
             }
             types2.forEach(visit2);
             throw new UnboundTypeError(`${message}: ` + unboundTypes.map(getTypeName).join([", "]));
@@ -48486,6 +48595,51 @@ function hasModelInCache(modelId, appConfig) {
     return libExports$2.hasTensorInCache(modelUrl, getCacheAccessOptions("webllm/model", appConfig));
   });
 }
+function deleteModelAllInfoInCache(modelId, appConfig) {
+  return __awaiter(this, void 0, void 0, function* () {
+    if (appConfig === void 0) {
+      appConfig = prebuiltAppConfig;
+    }
+    yield deleteModelInCache(modelId, appConfig);
+    yield deleteModelWasmInCache(modelId, appConfig);
+    yield deleteChatConfigInCache(modelId, appConfig);
+  });
+}
+function deleteModelInCache(modelId, appConfig) {
+  return __awaiter(this, void 0, void 0, function* () {
+    if (appConfig === void 0) {
+      appConfig = prebuiltAppConfig;
+    }
+    const modelRecord = findModelRecord(modelId, appConfig);
+    const modelUrl = cleanModelUrl$1(modelRecord.model);
+    const modelCache = createScopedArtifactCache("webllm/model", appConfig);
+    yield libExports$2.deleteTensorCache(modelUrl, getCacheAccessOptions("webllm/model", appConfig));
+    yield modelCache.deleteInCache(new URL("tokenizer.model", modelUrl).href);
+    yield modelCache.deleteInCache(new URL("tokenizer.json", modelUrl).href);
+  });
+}
+function deleteChatConfigInCache(modelId, appConfig) {
+  return __awaiter(this, void 0, void 0, function* () {
+    if (appConfig === void 0) {
+      appConfig = prebuiltAppConfig;
+    }
+    const modelRecord = findModelRecord(modelId, appConfig);
+    const configCache = createScopedArtifactCache("webllm/config", appConfig);
+    const modelUrl = cleanModelUrl$1(modelRecord.model);
+    const configUrl = new URL("mlc-chat-config.json", modelUrl).href;
+    yield configCache.deleteInCache(configUrl);
+  });
+}
+function deleteModelWasmInCache(modelId, appConfig) {
+  return __awaiter(this, void 0, void 0, function* () {
+    if (appConfig === void 0) {
+      appConfig = prebuiltAppConfig;
+    }
+    const modelRecord = findModelRecord(modelId, appConfig);
+    const wasmCache = createScopedArtifactCache("webllm/wasm", appConfig);
+    yield wasmCache.deleteInCache(modelRecord.model_lib);
+  });
+}
 function asyncLoadTokenizer(baseUrl_1, config_1, appConfig_1) {
   return __awaiter(this, arguments, void 0, function* (baseUrl, config, appConfig, logger = console.log, integrity) {
     const modelCache = createScopedArtifactCache("webllm/model", appConfig);
@@ -49555,6 +49709,320 @@ class MLCEngine {
     });
   }
 }
+function areArraysEqual(arr1, arr2) {
+  if (!arr1 && !arr2)
+    return true;
+  if (!arr1 || !arr2)
+    return false;
+  if (arr1.length !== arr2.length)
+    return false;
+  for (let i = 0; i < arr1.length; i++) {
+    if (arr1[i] !== arr2[i])
+      return false;
+  }
+  return true;
+}
+function areObjectsEqual(obj1, obj2) {
+  if (obj1 === obj2)
+    return true;
+  if (typeof obj1 !== typeof obj2)
+    return false;
+  if (typeof obj1 !== "object" || obj1 === null || obj2 === null)
+    return false;
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  if (keys1.length !== keys2.length)
+    return false;
+  for (const key of keys1) {
+    if (!keys2.includes(key) || !areObjectsEqual(obj1[key], obj2[key]))
+      return false;
+  }
+  return true;
+}
+function areChatOptionsEqual(options1, options2) {
+  if (options1 === void 0 || options2 === void 0) {
+    return options1 === options2;
+  }
+  if (!areArraysEqual(options1.tokenizer_files, options2.tokenizer_files))
+    return false;
+  if (!areObjectsEqual(options1.conv_config, options2.conv_config))
+    return false;
+  if (options1.conv_template !== options2.conv_template)
+    return false;
+  if (options1.repetition_penalty !== options2.repetition_penalty)
+    return false;
+  if (options1.frequency_penalty !== options2.frequency_penalty)
+    return false;
+  if (options1.presence_penalty !== options2.presence_penalty)
+    return false;
+  if (options1.top_p !== options2.top_p)
+    return false;
+  if (options1.temperature !== options2.temperature)
+    return false;
+  if (options1.bos_token_id !== options2.bos_token_id)
+    return false;
+  return true;
+}
+function areChatOptionsListEqual(options1, options2) {
+  if (options1 && options2) {
+    if (options1.length !== options2.length) {
+      return false;
+    } else {
+      for (let i = 0; i < options1.length; i++) {
+        if (!areChatOptionsEqual(options1[i], options2[i])) {
+          return false;
+        }
+      }
+      return true;
+    }
+  } else if (!options1 && !options2) {
+    return true;
+  } else {
+    return false;
+  }
+}
+class WebWorkerMLCEngineHandler {
+  /**
+   * @param engine A concrete implementation of MLCEngineInterface
+   */
+  constructor() {
+    this.engine = new MLCEngine();
+    this.loadedModelIdToAsyncGenerator = /* @__PURE__ */ new Map();
+    this.engine.setInitProgressCallback((report) => {
+      const msg = {
+        kind: "initProgressCallback",
+        uuid: "",
+        content: report
+      };
+      this.postMessage(msg);
+    });
+  }
+  postMessage(msg) {
+    postMessage(msg);
+  }
+  setLogitProcessorRegistry(logitProcessorRegistry) {
+    this.engine.setLogitProcessorRegistry(logitProcessorRegistry);
+  }
+  handleTask(uuid, task) {
+    return __awaiter(this, void 0, void 0, function* () {
+      try {
+        const res = yield task();
+        const msg = {
+          kind: "return",
+          uuid,
+          content: res
+        };
+        this.postMessage(msg);
+      } catch (err) {
+        const errStr = err.toString();
+        const msg = {
+          kind: "throw",
+          uuid,
+          content: errStr
+        };
+        this.postMessage(msg);
+      }
+    });
+  }
+  onmessage(event, onComplete, onError) {
+    let msg;
+    if (event instanceof MessageEvent) {
+      msg = event.data;
+    } else {
+      msg = event;
+    }
+    switch (msg.kind) {
+      case "reload": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          yield this.engine.reload(params.modelId, params.chatOpts);
+          this.modelId = params.modelId;
+          this.chatOpts = params.chatOpts;
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+          return null;
+        }));
+        return;
+      }
+      case "forwardTokensAndSample": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          const res = yield this.engine.forwardTokensAndSample(params.inputIds, params.isPrefill, params.modelId);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      // For engine.chat.completions.create()
+      case "chatCompletionNonStreaming": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          yield this.reloadIfUnmatched(params.modelId, params.chatOpts);
+          const res = yield this.engine.chatCompletion(params.request);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      case "chatCompletionStreamInit": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          yield this.reloadIfUnmatched(params.modelId, params.chatOpts);
+          const curGenerator = yield this.engine.chatCompletion(params.request);
+          this.loadedModelIdToAsyncGenerator.set(params.selectedModelId, curGenerator);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+          return null;
+        }));
+        return;
+      }
+      // For engine.completions.create()
+      case "completionNonStreaming": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          yield this.reloadIfUnmatched(params.modelId, params.chatOpts);
+          const res = yield this.engine.completion(params.request);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      case "completionStreamInit": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          yield this.reloadIfUnmatched(params.modelId, params.chatOpts);
+          const curGenerator = yield this.engine.completion(params.request);
+          this.loadedModelIdToAsyncGenerator.set(params.selectedModelId, curGenerator);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+          return null;
+        }));
+        return;
+      }
+      // Shared by engine.chat.completions.create() and engine.completions.create()
+      case "completionStreamNextChunk": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          const curGenerator = this.loadedModelIdToAsyncGenerator.get(params.selectedModelId);
+          if (curGenerator === void 0) {
+            throw Error("InternalError: Chunk generator in worker should be instantiated by now.");
+          }
+          const { value } = yield curGenerator.next();
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(value);
+          return value;
+        }));
+        return;
+      }
+      // For engine.embeddings.create()
+      case "embedding": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          yield this.reloadIfUnmatched(params.modelId, params.chatOpts);
+          const res = yield this.engine.embedding(params.request);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      case "runtimeStatsText": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          const res = yield this.engine.runtimeStatsText(params.modelId);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      case "interruptGenerate": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          this.engine.interruptGenerate();
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+          return null;
+        }));
+        return;
+      }
+      case "unload": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          yield this.engine.unload();
+          this.modelId = void 0;
+          this.chatOpts = void 0;
+          this.loadedModelIdToAsyncGenerator.clear();
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+          return null;
+        }));
+        return;
+      }
+      case "resetChat": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          yield this.engine.resetChat(params.keepStats, params.modelId);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+          return null;
+        }));
+        return;
+      }
+      case "getMaxStorageBufferBindingSize": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const res = yield this.engine.getMaxStorageBufferBindingSize();
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      case "getGPUVendor": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const res = yield this.engine.getGPUVendor();
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      case "getMessage": {
+        this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+          const params = msg.content;
+          const res = yield this.engine.getMessage(params.modelId);
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(res);
+          return res;
+        }));
+        return;
+      }
+      case "setLogLevel": {
+        const logLevel = msg.content;
+        this.engine.setLogLevel(logLevel);
+        log.setLevel(logLevel);
+        onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+        return;
+      }
+      case "setAppConfig": {
+        const appConfig = msg.content;
+        this.engine.setAppConfig(appConfig);
+        onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+        return;
+      }
+      case "customRequest": {
+        onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+        return;
+      }
+      default: {
+        if (msg.kind && msg.content) {
+          onError === null || onError === void 0 ? void 0 : onError();
+          throw new UnknownMessageKindError(msg.kind, msg.content);
+        } else {
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+        }
+      }
+    }
+  }
+  /** Check whether frontend expectation matches with backend (modelId and chatOpts). If not (due
+   * to possibly killed service worker), we reload here.
+   * For more, see https://github.com/mlc-ai/web-llm/pull/533
+   */
+  reloadIfUnmatched(expectedModelId, expectedChatOpts) {
+    return __awaiter(this, void 0, void 0, function* () {
+      if (!areArraysEqual(this.modelId, expectedModelId)) {
+        log.warn("WebWorkerMLCEngine expects model is loaded in WebWorkerMLCEngineHandler, but it is not. This may due to web/service worker is unexpectedly killed.\nReloading engine in WebWorkerMLCEngineHandler.");
+        yield this.engine.reload(expectedModelId, expectedChatOpts);
+      }
+    });
+  }
+}
 function CreateWebWorkerMLCEngine(worker, modelId, engineConfig, chatOpts) {
   return __awaiter(this, void 0, void 0, function* () {
     const webWorkerMLCEngine = new WebWorkerMLCEngine(worker, engineConfig);
@@ -49889,6 +50357,304 @@ class WebWorkerMLCEngine {
     }
   }
 }
+let ServiceWorkerMLCEngineHandler$1 = class ServiceWorkerMLCEngineHandler extends WebWorkerMLCEngineHandler {
+  constructor() {
+    if (!self || !("addEventListener" in self)) {
+      throw new NonWorkerEnvironmentError("ServiceWorkerMLCEngineHandler");
+    }
+    super();
+    this.clientRegistry = /* @__PURE__ */ new Map();
+    const onmessage2 = this.onmessage.bind(this);
+    this.engine.setInitProgressCallback((report) => {
+      const msg = {
+        kind: "initProgressCallback",
+        uuid: this.initRequestUuid || "",
+        content: report
+      };
+      this.postMessage(msg);
+    });
+    self.addEventListener("message", (event) => {
+      const message = event;
+      if (message.source) {
+        this.clientRegistry.set(message.data.uuid, message.source);
+      }
+      message.waitUntil(new Promise((resolve, reject) => {
+        onmessage2(message, resolve, reject);
+      }));
+    });
+  }
+  postMessage(message) {
+    if (this.clientRegistry.has(message.uuid)) {
+      const client2 = this.clientRegistry.get(message.uuid);
+      client2 === null || client2 === void 0 ? void 0 : client2.postMessage(message);
+      if (message.kind === "return" || message.kind === "throw") {
+        this.clientRegistry.delete(message.uuid);
+      }
+    }
+  }
+  onmessage(event, onComplete, onError) {
+    const msg = event.data;
+    log.trace(`ServiceWorker message: [${msg.kind}] ${JSON.stringify(msg.content)}`);
+    if (msg.kind === "keepAlive") {
+      const reply = {
+        kind: "heartbeat",
+        uuid: msg.uuid
+      };
+      this.postMessage(reply);
+      onComplete === null || onComplete === void 0 ? void 0 : onComplete(reply);
+      return;
+    }
+    if (msg.kind === "reload") {
+      this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+        var _a;
+        const params = msg.content;
+        if (areArraysEqual(this.modelId, params.modelId) && areChatOptionsListEqual(this.chatOpts, params.chatOpts)) {
+          log.info("Already loaded the model. Skip loading");
+          const gpuDetectOutput = yield libExports$2.detectGPUDevice();
+          if (gpuDetectOutput == void 0) {
+            throw Error("Cannot find WebGPU in the environment");
+          }
+          let gpuLabel = "WebGPU";
+          if (gpuDetectOutput.adapterInfo.description.length != 0) {
+            gpuLabel += " - " + gpuDetectOutput.adapterInfo.description;
+          } else {
+            gpuLabel += " - " + gpuDetectOutput.adapterInfo.vendor;
+          }
+          (_a = this.engine.getInitProgressCallback()) === null || _a === void 0 ? void 0 : _a({
+            progress: 1,
+            timeElapsed: 0,
+            text: "Finish loading on " + gpuLabel
+          });
+          onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+          return null;
+        }
+        this.initRequestUuid = msg.uuid;
+        yield this.engine.reload(params.modelId, params.chatOpts);
+        this.modelId = params.modelId;
+        this.chatOpts = params.chatOpts;
+        onComplete === null || onComplete === void 0 ? void 0 : onComplete(null);
+        return null;
+      }));
+      return;
+    }
+    super.onmessage(msg, onComplete, onError);
+  }
+};
+class ServiceWorker {
+  constructor() {
+    this._onmessage = () => {
+    };
+  }
+  get onmessage() {
+    return this._onmessage;
+  }
+  set onmessage(handler) {
+    this._onmessage = handler;
+    if (!("serviceWorker" in navigator)) {
+      throw new NoServiceWorkerAPIError();
+    }
+    navigator.serviceWorker.onmessage = handler;
+  }
+  postMessage(message) {
+    if (!("serviceWorker" in navigator)) {
+      throw new NoServiceWorkerAPIError();
+    }
+    const serviceWorker = navigator.serviceWorker.controller;
+    if (!serviceWorker) {
+      throw new Error("There is no active service worker");
+    }
+    serviceWorker.postMessage(message);
+  }
+}
+function CreateServiceWorkerMLCEngine$1(modelId_1, engineConfig_1, chatOpts_1) {
+  return __awaiter(this, arguments, void 0, function* (modelId, engineConfig, chatOpts, keepAliveMs = 1e4) {
+    if (!("serviceWorker" in navigator)) {
+      throw new NoServiceWorkerAPIError();
+    }
+    const serviceWorkerAPI = navigator.serviceWorker;
+    const registration = yield serviceWorkerAPI.ready;
+    const serviceWorker = registration.active || serviceWorkerAPI.controller;
+    if (!serviceWorker) {
+      throw new ServiceWorkerInitializationError();
+    }
+    const serviceWorkerMLCEngine = new ServiceWorkerMLCEngine$1(engineConfig, keepAliveMs);
+    yield serviceWorkerMLCEngine.reload(modelId, chatOpts);
+    return serviceWorkerMLCEngine;
+  });
+}
+let ServiceWorkerMLCEngine$1 = class ServiceWorkerMLCEngine extends WebWorkerMLCEngine {
+  constructor(engineConfig, keepAliveMs = 1e4) {
+    if (!("serviceWorker" in navigator)) {
+      throw new NoServiceWorkerAPIError();
+    }
+    super(new ServiceWorker(), engineConfig);
+    this.missedHeartbeat = 0;
+    setInterval(() => {
+      this.worker.postMessage({ kind: "keepAlive", uuid: crypto.randomUUID() });
+      this.missedHeartbeat += 1;
+      log.trace("missedHeartbeat", this.missedHeartbeat);
+    }, keepAliveMs);
+  }
+  onmessage(event) {
+    const msg = event.data;
+    log.trace(`MLC client message: [${msg.kind}] ${JSON.stringify(msg.content)}`);
+    try {
+      if (msg.kind === "heartbeat") {
+        this.missedHeartbeat = 0;
+        return;
+      }
+      super.onmessage(msg);
+    } catch (err) {
+      if (!err.message.startsWith("return from a unknown uuid")) {
+        log.error("CreateWebServiceWorkerMLCEngine.onmessage", err);
+      }
+    }
+  }
+};
+class ServiceWorkerMLCEngineHandler2 extends WebWorkerMLCEngineHandler {
+  constructor(port) {
+    super();
+    this.port = port;
+    port.onDisconnect.addListener(() => this.onPortDisconnect(port));
+  }
+  postMessage(msg) {
+    var _a;
+    (_a = this.port) === null || _a === void 0 ? void 0 : _a.postMessage(msg);
+  }
+  setPort(port) {
+    this.port = port;
+    port.onDisconnect.addListener(() => this.onPortDisconnect(port));
+  }
+  onPortDisconnect(port) {
+    if (port === this.port) {
+      this.port = null;
+    }
+  }
+  onmessage(event) {
+    if (event.type === "keepAlive") {
+      return;
+    }
+    const msg = event;
+    if (msg.kind === "reload") {
+      this.handleTask(msg.uuid, () => __awaiter(this, void 0, void 0, function* () {
+        var _a;
+        const params = msg.content;
+        if (areArraysEqual(this.modelId, params.modelId) && areChatOptionsListEqual(this.chatOpts, params.chatOpts)) {
+          log.info("Already loaded the model. Skip loading");
+          const gpuDetectOutput = yield libExports$2.detectGPUDevice();
+          if (gpuDetectOutput == void 0) {
+            throw new WebGPUNotFoundError();
+          }
+          let gpuLabel = "WebGPU";
+          if (gpuDetectOutput.adapterInfo.description.length != 0) {
+            gpuLabel += " - " + gpuDetectOutput.adapterInfo.description;
+          } else {
+            gpuLabel += " - " + gpuDetectOutput.adapterInfo.vendor;
+          }
+          (_a = this.engine.getInitProgressCallback()) === null || _a === void 0 ? void 0 : _a({
+            progress: 1,
+            timeElapsed: 0,
+            text: "Finish loading on " + gpuLabel
+          });
+          return null;
+        }
+        yield this.engine.reload(params.modelId, params.chatOpts);
+        this.modelId = params.modelId;
+        this.chatOpts = params.chatOpts;
+        return null;
+      }));
+      return;
+    }
+    super.onmessage(event);
+  }
+}
+function CreateServiceWorkerMLCEngine(modelId_1, engineConfig_1, chatOpts_1) {
+  return __awaiter(this, arguments, void 0, function* (modelId, engineConfig, chatOpts, keepAliveMs = 1e4) {
+    const serviceWorkerMLCEngine = new ServiceWorkerMLCEngine2(engineConfig, keepAliveMs);
+    yield serviceWorkerMLCEngine.reload(modelId, chatOpts);
+    return serviceWorkerMLCEngine;
+  });
+}
+class PortAdapter {
+  constructor(port) {
+    this.postMessage = (message) => {
+      this.port.postMessage(message);
+    };
+    this.port = port;
+    this.port.onMessage.addListener(this.handleMessage.bind(this));
+  }
+  // Wrapper to handle incoming messages and delegate to onmessage if available
+  handleMessage(message) {
+    if (this._onmessage) {
+      this._onmessage(message);
+    }
+  }
+  // Getter and setter for onmessage to manage adding/removing listeners
+  get onmessage() {
+    return this._onmessage;
+  }
+  set onmessage(listener) {
+    this._onmessage = listener;
+  }
+}
+class ServiceWorkerMLCEngine2 extends WebWorkerMLCEngine {
+  constructor(engineConfig, keepAliveMs = 1e4) {
+    const extensionId = engineConfig === null || engineConfig === void 0 ? void 0 : engineConfig.extensionId;
+    const onDisconnect = engineConfig === null || engineConfig === void 0 ? void 0 : engineConfig.onDisconnect;
+    const port = extensionId ? chrome.runtime.connect(extensionId, {
+      name: "web_llm_service_worker"
+    }) : chrome.runtime.connect({ name: "web_llm_service_worker" });
+    const chatWorker = new PortAdapter(port);
+    super(chatWorker, engineConfig);
+    this.port = port;
+    this.extensionId = extensionId;
+    const keepAliveTimer = setInterval(() => {
+      this.worker.postMessage({ kind: "keepAlive" });
+    }, keepAliveMs);
+    port.onDisconnect.addListener(() => {
+      clearInterval(keepAliveTimer);
+      if (onDisconnect) {
+        onDisconnect();
+      }
+    });
+  }
+}
+const index$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  Chat,
+  ChatCompletionRequestUnsupportedFields,
+  Completions: Completions2,
+  CreateExtensionServiceWorkerMLCEngine: CreateServiceWorkerMLCEngine,
+  CreateMLCEngine,
+  CreateServiceWorkerMLCEngine: CreateServiceWorkerMLCEngine$1,
+  CreateWebWorkerMLCEngine,
+  Embeddings,
+  ExtensionServiceWorkerMLCEngine: ServiceWorkerMLCEngine2,
+  ExtensionServiceWorkerMLCEngineHandler: ServiceWorkerMLCEngineHandler2,
+  IntegrityError,
+  MLCEngine,
+  get ModelType() {
+    return ModelType;
+  },
+  ServiceWorkerMLCEngine: ServiceWorkerMLCEngine$1,
+  ServiceWorkerMLCEngineHandler: ServiceWorkerMLCEngineHandler$1,
+  WebWorkerMLCEngine,
+  WebWorkerMLCEngineHandler,
+  deleteChatConfigInCache,
+  deleteModelAllInfoInCache,
+  deleteModelInCache,
+  deleteModelWasmInCache,
+  functionCallingModelIds,
+  hasModelInCache,
+  isValidSRI,
+  modelLibURLPrefix,
+  modelVersion,
+  postInitAndCheckFieldsChatCompletion: postInitAndCheckFields$2,
+  postInitAndCheckFieldsCompletion: postInitAndCheckFields$1,
+  postInitAndCheckFieldsEmbedding: postInitAndCheckFields,
+  prebuiltAppConfig,
+  verifyIntegrity
+}, Symbol.toStringTag, { value: "Module" }));
 /**
  * @license lucide-react v0.546.0 - ISC
  *
@@ -55653,15 +56419,15 @@ function initializeDocument(effects) {
       }
       const indexBeforeExits = self2.events.length;
       let indexBeforeFlow = indexBeforeExits;
-      let seen;
+      let seen2;
       let point2;
       while (indexBeforeFlow--) {
         if (self2.events[indexBeforeFlow][0] === "exit" && self2.events[indexBeforeFlow][1].type === types.chunkFlow) {
-          if (seen) {
+          if (seen2) {
             point2 = self2.events[indexBeforeFlow][1].end;
             break;
           }
-          seen = true;
+          seen2 = true;
         }
       }
       ok$1(point2, "could not find previous flow chunk");
@@ -57054,7 +57820,7 @@ function factoryDestination(effects, ok2, nok, type, literalType, literalMarkerT
 function factoryLabel(effects, ok2, nok, type, markerType, stringType) {
   const self2 = this;
   let size = 0;
-  let seen;
+  let seen2;
   return start;
   function start(code2) {
     ok$1(code2 === codes.leftSquareBracket, "expected `[`");
@@ -57066,7 +57832,7 @@ function factoryLabel(effects, ok2, nok, type, markerType, stringType) {
     return atBreak;
   }
   function atBreak(code2) {
-    if (size > constants.linkReferenceSizeMax || code2 === codes.eof || code2 === codes.leftSquareBracket || code2 === codes.rightSquareBracket && !seen || // To do: remove in the future once we’ve switched from
+    if (size > constants.linkReferenceSizeMax || code2 === codes.eof || code2 === codes.leftSquareBracket || code2 === codes.rightSquareBracket && !seen2 || // To do: remove in the future once we’ve switched from
     // `micromark-extension-footnote` to `micromark-extension-gfm-footnote`,
     // which doesn’t need this.
     // Hidden footnotes hook.
@@ -57097,7 +57863,7 @@ function factoryLabel(effects, ok2, nok, type, markerType, stringType) {
       return atBreak(code2);
     }
     effects.consume(code2);
-    if (!seen) seen = !markdownSpace(code2);
+    if (!seen2) seen2 = !markdownSpace(code2);
     return code2 === codes.backslash ? labelEscape : labelInside;
   }
   function labelEscape(code2) {
@@ -57168,21 +57934,21 @@ function factoryTitle(effects, ok2, nok, type, markerType, stringType) {
   }
 }
 function factoryWhitespace(effects, ok2) {
-  let seen;
+  let seen2;
   return start;
   function start(code2) {
     if (markdownLineEnding(code2)) {
       effects.enter(types.lineEnding);
       effects.consume(code2);
       effects.exit(types.lineEnding);
-      seen = true;
+      seen2 = true;
       return start;
     }
     if (markdownSpace(code2)) {
       return factorySpace(
         effects,
         start,
-        seen ? types.linePrefix : types.lineSuffix
+        seen2 ? types.linePrefix : types.lineSuffix
       )(code2);
     }
     return ok2(code2);
@@ -65912,7 +66678,7 @@ function tokenizeWwwAutolink(effects, ok2, nok) {
 function tokenizeProtocolAutolink(effects, ok2, nok) {
   const self2 = this;
   let buffer = "";
-  let seen = false;
+  let seen2 = false;
   return protocolStart;
   function protocolStart(code2) {
     if ((code2 === codes.uppercaseH || code2 === codes.lowercaseH) && previousProtocol.call(self2, self2.previous) && !previousUnbalanced(self2.events)) {
@@ -65942,10 +66708,10 @@ function tokenizeProtocolAutolink(effects, ok2, nok) {
   function protocolSlashesInside(code2) {
     if (code2 === codes.slash) {
       effects.consume(code2);
-      if (seen) {
+      if (seen2) {
         return afterProtocol;
       }
-      seen = true;
+      seen2 = true;
       return protocolSlashesInside;
     }
     return nok(code2);
@@ -65981,7 +66747,7 @@ function tokenizeWwwPrefix(effects, ok2, nok) {
 function tokenizeDomain(effects, ok2, nok) {
   let underscoreInLastSegment;
   let underscoreInLastLastSegment;
-  let seen;
+  let seen2;
   return domainInside;
   function domainInside(code2) {
     if (code2 === codes.dot || code2 === codes.underscore) {
@@ -65990,7 +66756,7 @@ function tokenizeDomain(effects, ok2, nok) {
     if (code2 === codes.eof || markdownLineEndingOrSpace(code2) || unicodeWhitespace(code2) || code2 !== codes.dash && unicodePunctuation(code2)) {
       return domainAfter(code2);
     }
-    seen = true;
+    seen2 = true;
     effects.consume(code2);
     return domainInside;
   }
@@ -66005,7 +66771,7 @@ function tokenizeDomain(effects, ok2, nok) {
     return domainInside;
   }
   function domainAfter(code2) {
-    if (underscoreInLastLastSegment || underscoreInLastSegment || !seen) {
+    if (underscoreInLastLastSegment || underscoreInLastSegment || !seen2) {
       return nok(code2);
     }
     return ok2(code2);
@@ -66628,7 +67394,7 @@ function tokenizeTable(effects, ok2, nok) {
   const self2 = this;
   let size = 0;
   let sizeB = 0;
-  let seen;
+  let seen2;
   return start;
   function start(code2) {
     let index2 = self2.events.length - 1;
@@ -66655,7 +67421,7 @@ function tokenizeTable(effects, ok2, nok) {
     if (code2 === codes.verticalBar) {
       return headRowBreak(code2);
     }
-    seen = true;
+    seen2 = true;
     sizeB += 1;
     return headRowBreak(code2);
   }
@@ -66679,15 +67445,15 @@ function tokenizeTable(effects, ok2, nok) {
       return factorySpace(effects, headRowBreak, types.whitespace)(code2);
     }
     sizeB += 1;
-    if (seen) {
-      seen = false;
+    if (seen2) {
+      seen2 = false;
       size += 1;
     }
     if (code2 === codes.verticalBar) {
       effects.enter("tableCellDivider");
       effects.consume(code2);
       effects.exit("tableCellDivider");
-      seen = true;
+      seen2 = true;
       return headRowBreak;
     }
     effects.enter(types.data);
@@ -66714,7 +67480,7 @@ function tokenizeTable(effects, ok2, nok) {
       return nok(code2);
     }
     effects.enter("tableDelimiterRow");
-    seen = false;
+    seen2 = false;
     if (markdownSpace(code2)) {
       ok$1(self2.parser.constructs.disable.null, "expected `disabled.null`");
       return factorySpace(
@@ -66731,7 +67497,7 @@ function tokenizeTable(effects, ok2, nok) {
       return headDelimiterValueBefore(code2);
     }
     if (code2 === codes.verticalBar) {
-      seen = true;
+      seen2 = true;
       effects.enter("tableCellDivider");
       effects.consume(code2);
       effects.exit("tableCellDivider");
@@ -66752,7 +67518,7 @@ function tokenizeTable(effects, ok2, nok) {
   function headDelimiterValueBefore(code2) {
     if (code2 === codes.colon) {
       sizeB += 1;
-      seen = true;
+      seen2 = true;
       effects.enter("tableDelimiterMarker");
       effects.consume(code2);
       effects.exit("tableDelimiterMarker");
@@ -66780,7 +67546,7 @@ function tokenizeTable(effects, ok2, nok) {
       return headDelimiterFiller;
     }
     if (code2 === codes.colon) {
-      seen = true;
+      seen2 = true;
       effects.exit("tableDelimiterFiller");
       effects.enter("tableDelimiterMarker");
       effects.consume(code2);
@@ -66805,7 +67571,7 @@ function tokenizeTable(effects, ok2, nok) {
       return headDelimiterBefore(code2);
     }
     if (code2 === codes.eof || markdownLineEnding(code2)) {
-      if (!seen || size !== sizeB) {
+      if (!seen2 || size !== sizeB) {
         return headDelimiterNok(code2);
       }
       effects.exit("tableDelimiterRow");
@@ -134675,26 +135441,51 @@ function App() {
     }
   };
   const handleClearModelCache = async () => {
+    try {
+      const { deleteModelAllInfoInCache: deleteModelAllInfoInCache2 } = await __vitePreload(async () => {
+        const { deleteModelAllInfoInCache: deleteModelAllInfoInCache3 } = await Promise.resolve().then(() => index$1);
+        return { deleteModelAllInfoInCache: deleteModelAllInfoInCache3 };
+      }, true ? void 0 : void 0, import.meta.url);
+      for (const model of registeredModels) {
+        await deleteModelAllInfoInCache2(model.id).catch(() => {
+        });
+      }
+    } catch (e) {
+      console.warn("WebLLM official cleanup failed:", e);
+    }
     if (typeof window !== "undefined" && "caches" in window) {
-      const keys2 = await caches.keys();
-      for (const k of keys2) {
-        if (k.includes("webllm") || k.includes("tvmjs") || k.includes("mlc") || k.includes("huggingface")) {
-          await caches.delete(k);
+      try {
+        const keys2 = await caches.keys();
+        for (const k of keys2) {
+          if (k.includes("webllm") || k.includes("tvmjs") || k.includes("mlc") || k.includes("huggingface") || k.includes("model")) {
+            await caches.delete(k);
+          }
         }
+      } catch (e) {
+        console.warn("Cache API clear error:", e);
       }
     }
-    if (typeof indexedDB !== "undefined" && indexedDB.databases) {
+    if (typeof window !== "undefined" && "indexedDB" in window) {
+      const knownIDBs = ["webllm/model", "webllm/config", "webllm/wasm", "webllm/chatConfig", "tvmjs"];
+      for (const dbName of knownIDBs) {
+        try {
+          indexedDB.deleteDatabase(dbName);
+        } catch (e) {
+        }
+      }
       try {
-        const dbs = await indexedDB.databases();
-        for (const db of dbs) {
-          if (db.name && (db.name.includes("webllm") || db.name.includes("tvmjs") || db.name.includes("mlc"))) {
-            if (db.name !== "local_webllm_chat_db") {
-              indexedDB.deleteDatabase(db.name);
+        if (indexedDB.databases) {
+          const dbs = await indexedDB.databases();
+          for (const db of dbs) {
+            if (db.name && (db.name.includes("webllm") || db.name.includes("tvmjs") || db.name.includes("mlc"))) {
+              if (db.name !== "local_webllm_chat_db") {
+                indexedDB.deleteDatabase(db.name);
+              }
             }
           }
         }
       } catch (e) {
-        console.warn("IDB clear error:", e);
+        console.warn("Dynamic IDB clear error:", e);
       }
     }
     if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.getDirectory) {
@@ -134708,7 +135499,7 @@ function App() {
     }
     setIsCached(false);
     setParamStatus({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
-    await new Promise((resolve) => setTimeout(resolve, 1e3));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     await runDiagnostics();
   };
   const handleSend = async (customPrompt) => {
@@ -134903,48 +135694,48 @@ function App() {
     return /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "fixed inset-0 flex h-full w-full items-center justify-center bg-[#0b0d11] text-white p-6 font-sans", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "max-w-md w-full p-8 border border-white/[0.08] bg-[#12141a]/90 backdrop-blur-2xl rounded-3xl text-center space-y-6 shadow-2xl", children: [
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto", children: /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Cpu, { className: "w-8 h-8" }, void 0, false, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1074,
+        lineNumber: 1096,
         columnNumber: 13
       }, this) }, void 0, false, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1073,
+        lineNumber: 1095,
         columnNumber: 11
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "space-y-2", children: [
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("h1", { className: "text-xl font-semibold tracking-tight", children: "WebGPU Acceleration Required" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1077,
+          lineNumber: 1099,
           columnNumber: 13
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("p", { className: "text-sm text-white/60 leading-relaxed", children: "Your browser or graphics driver does not currently have WebGPU active. WebGPU is needed to execute model weights natively in local VRAM with zero cloud servers." }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1078,
+          lineNumber: 1100,
           columnNumber: 13
         }, this)
       ] }, void 0, true, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1076,
+        lineNumber: 1098,
         columnNumber: 11
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "p-4 bg-white/[0.03] rounded-2xl border border-white/[0.06] text-xs text-left text-white/70 space-y-2 font-mono", children: [
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "font-semibold text-white/90 font-sans", children: "How to enable WebGPU:" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1083,
+          lineNumber: 1105,
           columnNumber: 13
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { children: "• Chrome/Brave/Edge: Settings → System → Enable Hardware Acceleration" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1084,
+          lineNumber: 1106,
           columnNumber: 13
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { children: "• Safari: Settings → Advanced → Feature Flags → WebGPU" }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1085,
+          lineNumber: 1107,
           columnNumber: 13
         }, this)
       ] }, void 0, true, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1082,
+        lineNumber: 1104,
         columnNumber: 11
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
@@ -134958,18 +135749,18 @@ function App() {
         false,
         {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1087,
+          lineNumber: 1109,
           columnNumber: 11
         },
         this
       )
     ] }, void 0, true, {
       fileName: "/app/applet/src/App.tsx",
-      lineNumber: 1072,
+      lineNumber: 1094,
       columnNumber: 9
     }, this) }, void 0, false, {
       fileName: "/app/applet/src/App.tsx",
-      lineNumber: 1071,
+      lineNumber: 1093,
       columnNumber: 7
     }, this);
   }
@@ -135004,7 +135795,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1102,
+        lineNumber: 1124,
         columnNumber: 7
       },
       this
@@ -135040,7 +135831,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1129,
+        lineNumber: 1151,
         columnNumber: 9
       },
       this
@@ -135049,51 +135840,51 @@ function App() {
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-2 text-white/70", children: status === "loading" ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(jsxDevRuntimeExports.Fragment, { children: [
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(LoaderCircle, { className: "w-3.5 h-3.5 animate-spin text-white" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1162,
+            lineNumber: 1184,
             columnNumber: 21
           }, this),
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: detailedProgress.step === 1 ? `Downloading Parameters (${detailedProgress.paramsPercent}%)` : `Compiling Shaders (${detailedProgress.progressPercent}%)` }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1163,
+            lineNumber: 1185,
             columnNumber: 21
           }, this)
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1161,
+          lineNumber: 1183,
           columnNumber: 19
         }, this) : status === "error" ? /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(jsxDevRuntimeExports.Fragment, { children: [
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(TriangleAlert, { className: "w-3.5 h-3.5 text-rose-400" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1171,
+            lineNumber: 1193,
             columnNumber: 21
           }, this),
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { className: "text-rose-300", children: "Model not active in WebGPU memory" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1172,
+            lineNumber: 1194,
             columnNumber: 21
           }, this)
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1170,
+          lineNumber: 1192,
           columnNumber: 19
         }, this) : /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(jsxDevRuntimeExports.Fragment, { children: [
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(Sparkles, { className: "w-3.5 h-3.5 text-white/60" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1176,
+            lineNumber: 1198,
             columnNumber: 21
           }, this),
           /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("span", { children: "Model not loaded into WebGPU VRAM" }, void 0, false, {
             fileName: "/app/applet/src/App.tsx",
-            lineNumber: 1177,
+            lineNumber: 1199,
             columnNumber: 21
           }, this)
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1175,
+          lineNumber: 1197,
           columnNumber: 19
         }, this) }, void 0, false, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1159,
+          lineNumber: 1181,
           columnNumber: 15
         }, this),
         /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV("div", { className: "flex items-center gap-2", children: [
@@ -135109,7 +135900,7 @@ function App() {
             false,
             {
               fileName: "/app/applet/src/App.tsx",
-              lineNumber: 1184,
+              lineNumber: 1206,
               columnNumber: 19
             },
             this
@@ -135125,7 +135916,7 @@ function App() {
             false,
             {
               fileName: "/app/applet/src/App.tsx",
-              lineNumber: 1192,
+              lineNumber: 1214,
               columnNumber: 19
             },
             this
@@ -135142,19 +135933,19 @@ function App() {
             false,
             {
               fileName: "/app/applet/src/App.tsx",
-              lineNumber: 1200,
+              lineNumber: 1222,
               columnNumber: 17
             },
             this
           )
         ] }, void 0, true, {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1182,
+          lineNumber: 1204,
           columnNumber: 15
         }, this)
       ] }, void 0, true, {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1158,
+        lineNumber: 1180,
         columnNumber: 13
       }, this),
       /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
@@ -135189,14 +135980,14 @@ function App() {
         false,
         {
           fileName: "/app/applet/src/App.tsx",
-          lineNumber: 1211,
+          lineNumber: 1233,
           columnNumber: 11
         },
         this
       )
     ] }, void 0, true, {
       fileName: "/app/applet/src/App.tsx",
-      lineNumber: 1155,
+      lineNumber: 1177,
       columnNumber: 9
     }, this),
     /* @__PURE__ */ jsxDevRuntimeExports.jsxDEV(
@@ -135214,7 +136005,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1241,
+        lineNumber: 1263,
         columnNumber: 7
       },
       this
@@ -135237,7 +136028,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1252,
+        lineNumber: 1274,
         columnNumber: 7
       },
       this
@@ -135258,7 +136049,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1266,
+        lineNumber: 1288,
         columnNumber: 7
       },
       this
@@ -135273,7 +136064,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1278,
+        lineNumber: 1300,
         columnNumber: 7
       },
       this
@@ -135290,7 +136081,7 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1284,
+        lineNumber: 1306,
         columnNumber: 7
       },
       this
@@ -135316,14 +136107,14 @@ function App() {
       false,
       {
         fileName: "/app/applet/src/App.tsx",
-        lineNumber: 1292,
+        lineNumber: 1314,
         columnNumber: 7
       },
       this
     )
   ] }, void 0, true, {
     fileName: "/app/applet/src/App.tsx",
-    lineNumber: 1100,
+    lineNumber: 1122,
     columnNumber: 5
   }, this);
 }
