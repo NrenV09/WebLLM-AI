@@ -188,6 +188,14 @@ html, body {
   @apply text-[#f5f5f7];
 }
 
+/* Fix KaTeX overlapping and missing lines caused by Tailwind resets */
+.katex * {
+  border-color: currentColor;
+}
+.katex, .katex * {
+  line-height: normal !important;
+}
+
 /* Ensure KaTeX MathML is visually hidden so formula isn't duplicated in plain text */
 .katex .katex-mathml {
   display: none !important;
