@@ -270,7 +270,7 @@ export default function App() {
       const now = Date.now();
       const idleTimeMs = now - lastActivityRef.current;
       // 15 minutes = 15 * 60 * 1000 = 900000 ms
-      if (idleTimeMs > 900000 && engineRef.current && status === 'ready' && !isGenerating) {
+      if (idleTimeMs > 900000 && engineRef.current && status === 'ready' && !isTyping) {
         console.log('Unloading model due to 15 minutes of inactivity.');
         handleUnloadPipeline();
       }
@@ -289,7 +289,7 @@ export default function App() {
       window.removeEventListener('click', updateActivity);
       window.removeEventListener('touchstart', updateActivity);
     };
-  }, [status, isGenerating]);
+  }, [status, isTyping]);
 
   const runDiagnostics = async () => {
     const ua = navigator.userAgent || '';

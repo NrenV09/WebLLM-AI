@@ -38,6 +38,7 @@ interface ChatAreaProps {
   onLoadModel?: () => void;
   vramStats?: VramLiveStats | null;
   onOpenVramMonitor?: () => void;
+  onDeleteMessage?: (id: string) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -63,7 +64,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   isModelLoaded,
   onLoadModel,
   vramStats,
-  onOpenVramMonitor
+  onOpenVramMonitor,
+  onDeleteMessage
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
