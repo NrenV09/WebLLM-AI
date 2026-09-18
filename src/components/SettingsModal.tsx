@@ -12,6 +12,20 @@ interface SettingsModalProps {
 
 const PRESETS = [
   {
+    name: 'NVIDIA Nemotron 3 Reasoning',
+    icon: Brain,
+    desc: 'Dense ~4B reasoning with 128K context window & step-by-step thinking trace',
+    settings: {
+      temperature: 0.6,
+      top_p: 0.95,
+      repetition_penalty: 1.06,
+      max_tokens: 4096,
+      contextWindowSize: 131072,
+      reasoningMode: true,
+      systemPrompt: 'You are NVIDIA Nemotron-3-Nano-4B, a powerful dense ~4B reasoning assistant featuring a 128K token context window. Break down problems step-by-step and wrap your internal reasoning inside <think>...</think> tags before providing your final answer.\n\nSTRICT LATEX FORMATTING:\n1. Inline math: $...$\n2. Display block math: $$...$$'
+    }
+  },
+  {
     name: 'Balanced',
     icon: Sparkles,
     desc: 'General knowledge, clean explanations, versatile everyday chat',
@@ -308,6 +322,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="flex items-center justify-between border-t border-white/[0.06] pt-2.5">
                   <div className="space-y-0.5">
+                    <div className="text-xs font-medium text-white flex items-center gap-1.5">
+                      <span>Reasoning Mode (Thinking Trace)</span>
+                      <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30">Nemotron / Qwen</span>
+                    </div>
+                    <div className="text-[11px] text-white/40">Emits step-by-step reasoning enclosed in &lt;think&gt; tags before answering</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLocal({ ...local, reasoningMode: local.reasoningMode === false ? true : false })}
+                    className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
+                      local.reasoningMode !== false ? 'bg-purple-400' : 'bg-white/10'
+                    }`}
+                  >
+                    <div className={`bg-black w-4 h-4 rounded-full transition-transform ${
+                      local.reasoningMode !== false ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-white/[0.06] pt-2.5">
+                  <div className="space-y-0.5">
                     <div className="text-xs font-medium text-white">iPad WebGPU Memory Optimizer</div>
                     <div className="text-[11px] text-white/40">Prevents iOS Safari WebGPU buffer exhaustion & freezes</div>
                   </div>
@@ -366,16 +401,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         badge: 'iPad & Mobile'
                       },
                       {
-                        size: 3072,
-                        title: '⚖️ Balanced (3K)',
-                        desc: 'Optimal balance of context and GPU speed.',
-                        badge: 'Default'
-                      },
-                      {
                         size: 4096,
                         title: '🧠 Extended (4K)',
                         desc: 'Full context for extensive reasoning & coding.',
-                        badge: 'High Memory'
+                        badge: 'Standard'
                       },
                       {
                         size: 8192,
@@ -384,10 +413,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         badge: 'High Output'
                       },
                       {
-                        size: 12000,
-                        title: '⚡ Ultra Context (12K)',
-                        desc: 'Maximum 12,000 tokens context for deep document synthesis.',
-                        badge: 'Max Context'
+                        size: 32768,
+                        title: '📚 Extended (32K)',
+                        desc: '32,768 tokens context for multi-turn deep dialogues.',
+                        badge: '32K'
+                      },
+                      {
+                        size: 65536,
+                        title: '📄 Document (64K)',
+                        desc: '65,536 tokens for massive files, books, and code repositories.',
+                        badge: '64K'
+                      },
+                      {
+                        size: 131072,
+                        title: '⚡ Nemotron Max (128K)',
+                        desc: 'Full 131,072 tokens context window matching Nemotron native capability.',
+                        badge: '128K Native'
                       }
                     ].map((opt) => {
                       const isSelected = (local.contextWindowSize || 3072) === opt.size;

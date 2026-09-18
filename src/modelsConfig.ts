@@ -3,6 +3,24 @@ import { ModelInfo } from './types';
 
 export const AVAILABLE_MODELS: ModelInfo[] = [
   { 
+    id: 'nvidia/Nemotron-3-Nano-4B', 
+    name: 'nvidia/Nemotron-3-Nano-4B', 
+    vramMB: 2600, 
+    ipadRecommended: true, 
+    isVision: false, 
+    params: '~4B (dense, not MoE)',
+    contextLength: '128K tokens',
+    modalities: 'text-in / text-out (with optional reasoning mode)',
+    license: 'NVIDIA Open Model License (commercial use OK)',
+    hostedOn: ['Hugging Face', 'NVIDIA NIM'],
+    huggingFaceUrl: 'https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16',
+    nvidiaNimUrl: 'https://build.nvidia.com/nvidia/nemotron-3-nano-4b',
+    supportsReasoningToggle: true,
+    sizeLabel: '2.6 GB • 128K Context • ~4B Dense',
+    description: 'NVIDIA Nemotron-3-Nano-4B: ~4B dense parameter model featuring a 128K token context window, dual-mode text generation with optional reasoning trace, and commercial-friendly NVIDIA Open Model License. Hosted on Hugging Face and NVIDIA NIM.',
+    highlight: 'NVIDIA 128K • Reasoning Mode'
+  },
+  { 
     id: 'Qwen3-4B-q4f16_1-MLC', 
     name: 'Qwen3 4B', 
     vramMB: 2600, 
@@ -55,6 +73,20 @@ export const AVAILABLE_MODELS: ModelInfo[] = [
 ];
 
 export const CUSTOM_MODEL_RECORDS = [
+  {
+    model: "https://huggingface.co/nvidia/Nemotron-3-Nano-4B-MLC",
+    model_id: "nvidia/Nemotron-3-Nano-4B",
+    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Qwen2.5-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+    vram_required_MB: 2600,
+    low_resource_required: false,
+  },
+  {
+    model: "https://huggingface.co/nvidia/Nemotron-3-Nano-4B-MLC",
+    model_id: "nvidia-Nemotron-3-Nano-4B-q4f16_1-MLC",
+    model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Qwen2.5-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm",
+    vram_required_MB: 2600,
+    low_resource_required: false,
+  },
   {
     model: "https://huggingface.co/mlc-ai/SmolLM2-135M-Instruct-q4f16_1-MLC",
     model_id: "SmolLM2-135M-Instruct-q0f16-MLC",

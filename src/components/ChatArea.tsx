@@ -110,6 +110,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.1] backdrop-blur-xl text-xs font-medium text-white/90 truncate shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-white/70 shrink-0" />
             <span className="truncate">{currentModel?.name}</span>
+            {currentModel?.contextLength && (
+              <span className="text-[10px] text-emerald-400 font-mono hidden sm:inline">
+                {currentModel.contextLength}
+              </span>
+            )}
           </div>
 
           {/* Interactive Real-Time VRAM & Health Badge */}

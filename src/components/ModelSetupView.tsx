@@ -11,7 +11,11 @@ import {
   AlertTriangle,
   RotateCcw,
   Sliders,
-  Activity
+  Activity,
+  Brain,
+  ExternalLink,
+  ShieldCheck,
+  Layers
 } from 'lucide-react';
 import { ModelInfo, DetailedProgress, AISettings, VramLiveStats } from '../types';
 
@@ -180,25 +184,148 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
             </select>
           </div>
 
-          {/* Context Window Profile (Including 8192 & 12000 tokens) */}
+          {/* Model Specifications & Hosting Details Card */}
+          {currentModel && (
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-white">
+                      {currentModel.name}
+                    </span>
+                    {currentModel.highlight && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-medium">
+                        {currentModel.highlight}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11.5px] text-white/60 leading-relaxed">
+                    {currentModel.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Spec Badges Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-white/[0.06]">
+                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span className="truncate">
+                    <strong className="text-white font-medium">Params:</strong> {currentModel.params || '~4B Dense'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+                  <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">
+                    <strong className="text-white font-medium">Context:</strong> {currentModel.contextLength || '32K Tokens'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span className="truncate" title={currentModel.license || 'Open License'}>
+                    <strong className="text-white font-medium">License:</strong> {currentModel.license ? 'NVIDIA Open (Comm. OK)' : 'Apache-2.0'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+                  <Brain className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span className="truncate">
+                    <strong className="text-white font-medium">Modes:</strong> {currentModel.modalities ? 'Dual (Direct & Reasoning)' : 'Text-to-Text'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Hosting Platforms / External Links */}
+              {currentModel.hostedOn && currentModel.hostedOn.length > 0 && (
+                <div className="flex items-center justify-between pt-1 text-[11px] text-white/50">
+                  <span>Hosted on: <span className="text-white/80 font-medium">{currentModel.hostedOn.join(' & ')}</span></span>
+                  <div className="flex items-center gap-2">
+                    {currentModel.huggingFaceUrl && (
+                      <a
+                        href={currentModel.huggingFaceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
+                      >
+                        <span>Hugging Face</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {currentModel.nvidiaNimUrl && (
+                      <a
+                        href={currentModel.nvidiaNimUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
+                      >
+                        <span>NVIDIA NIM</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Optional Reasoning Mode Toggle (Thinking Trace) */}
+          {(currentModel?.supportsReasoningToggle || selectedModel.toLowerCase().includes('nemotron') || selectedModel.toLowerCase().includes('qwen')) && (
+            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg ${aiSettings.reasoningMode !== false ? 'bg-purple-500/20 text-purple-300' : 'bg-white/10 text-white/50'}`}>
+                    <Brain className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-white block">
+                      Reasoning Trace (Thinking Mode)
+                    </span>
+                    <span className="text-[10px] text-white/50">
+                      {aiSettings.reasoningMode !== false 
+                        ? 'Active: Emits step-by-step thinking in <think> tags' 
+                        : 'Disabled: Direct answers without thinking trace'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateAISettings({
+                      ...aiSettings,
+                      reasoningMode: aiSettings.reasoningMode === false ? true : false
+                    });
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    aiSettings.reasoningMode !== false
+                      ? 'bg-purple-500/20 border border-purple-500/40 text-purple-200 shadow-sm'
+                      : 'bg-white/[0.05] border border-white/[0.1] text-white/60 hover:text-white'
+                  }`}
+                >
+                  {aiSettings.reasoningMode !== false ? 'Enabled' : 'Direct Only'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Context Window Profile (Including up to 128K tokens for Nemotron) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-white/40 uppercase tracking-wider">
                 Context Window Profile
               </span>
               <span className="font-mono text-white/70 text-[11px]">
-                {aiSettings.contextWindowSize || 3072} Tokens
+                {aiSettings.contextWindowSize || (selectedModel.toLowerCase().includes('nemotron') ? 131072 : 3072)} Tokens
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[
                 { size: 2048, label: '⚡ 2K Turbo', hint: 'Low VRAM' },
-                { size: 3072, label: '⚖️ 3K Balanced', hint: 'Default' },
                 { size: 4096, label: '🧠 4K Extended', hint: 'Standard' },
                 { size: 8192, label: '🚀 8K High Output', hint: 'High Output' },
-                { size: 12000, label: '⚡ 12K Ultra', hint: 'Max Context' }
+                { size: 32768, label: '📚 32K Extended', hint: 'Multi-turn' },
+                { size: 65536, label: '📄 64K Document', hint: 'Large Code' },
+                { size: 131072, label: '⚡ 128K Nemotron', hint: 'Full 128K Window' }
               ].map((opt) => {
-                const active = (aiSettings.contextWindowSize || 3072) === opt.size;
+                const active = (aiSettings.contextWindowSize || (selectedModel.toLowerCase().includes('nemotron') ? 131072 : 3072)) === opt.size;
+                const isNemotronMax = opt.size === 131072;
                 return (
                   <button
                     key={opt.size}
@@ -209,8 +336,12 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
                     }}
                     className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                       active
-                        ? 'bg-white/[0.12] border-white/40 text-white font-medium shadow-xs ring-1 ring-white/20'
-                        : 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white hover:border-white/[0.14]'
+                        ? isNemotronMax
+                          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200 font-medium shadow-xs ring-1 ring-emerald-500/30'
+                          : 'bg-white/[0.12] border-white/40 text-white font-medium shadow-xs ring-1 ring-white/20'
+                        : isNemotronMax
+                          ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300/80 hover:text-emerald-200 hover:bg-emerald-500/10'
+                          : 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white hover:border-white/[0.14]'
                     }`}
                   >
                     <div className="text-xs">{opt.label}</div>

@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: AISettings = {
   phi4AntiLooping: true,
   ipadOptimization: true,
   appleSiliconOptimized: true,
+  reasoningMode: true,
   systemPrompt: 'You are a helpful, brilliant, and precise AI assistant. When analyzing complex problems, performing multi-step reasoning, or writing mathematical derivations or code, wrap your internal reasoning in <think>...</think> tags before providing the final answer.\n\nSTRICT LATEX FORMATTING RULES:\n1. Inline math: $...$ (e.g. $E = mc^2$)\n2. Display block math: $$...$$ on separate lines.'
 };
 

@@ -27,6 +27,11 @@ interface LocalModelImporterModalProps {
 
 const ARCHITECTURE_TEMPLATES = [
   {
+    id: 'nemotron',
+    name: 'NVIDIA Nemotron-3-Nano-4B (WebGPU)',
+    wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Qwen2.5-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm'
+  },
+  {
     id: 'qwen',
     name: 'Qwen 2.5 / Qwen 3 (WebGPU)',
     wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Qwen2.5-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm'

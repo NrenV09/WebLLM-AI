@@ -918,11 +918,27 @@ export default function App() {
     setSessions(updatedSessionsList);
     await saveSession(updatedSession);
 
+    const isPhiModel = selectedModel.toLowerCase().includes('phi');
+    const isNemotronModel = selectedModel.toLowerCase().includes('nemotron');
+
+    // Context & System prompt handling for Nemotron Dual Reasoning Mode
+    let effectiveSystemPrompt = aiSettings.systemPrompt;
+    if (isNemotronModel) {
+      if (aiSettings.reasoningMode !== false) {
+        if (!effectiveSystemPrompt.includes('<think>')) {
+          effectiveSystemPrompt += '\n\nReasoning Mode Active: Analyze problems step-by-step and enclose your intermediate thinking inside <think>...</think> tags before giving the final answer.';
+        }
+      } else {
+        effectiveSystemPrompt += '\n\nDirect Response Mode: Provide an immediate, concise answer without producing reasoning traces or <think> tags.';
+      }
+    }
+
+    const defaultContext = isNemotronModel ? 131072 : 3072;
     // Build pruned chat context for model with sliding window budget
     const chatHistory = buildPrunedChatHistory(
-      aiSettings.systemPrompt,
+      effectiveSystemPrompt,
       newMessages.slice(0, -1),
-      aiSettings.contextWindowSize || 3072,
+      aiSettings.contextWindowSize || defaultContext,
       aiSettings.max_tokens || 4096
     );
 
@@ -932,7 +948,6 @@ export default function App() {
     let tokenCount = 0;
     let accumulatedText = '';
 
-    const isPhiModel = selectedModel.toLowerCase().includes('phi');
     const repetitionPenalty = (aiSettings.phi4AntiLooping !== false || isPhiModel)
       ? Math.max(aiSettings.repetition_penalty || 1.08, 1.18)
       : (aiSettings.repetition_penalty || 1.08);
@@ -952,7 +967,10 @@ export default function App() {
           "<|user|>",
           "<|assistant|>",
           "<|end_of_turn|>",
-          "<|eot_id|>"
+          "<|eot_id|>",
+          "<extra_id_0>",
+          "<extra_id_1>",
+          "<|thought_end|>"
         ],
         stream: true
       });
