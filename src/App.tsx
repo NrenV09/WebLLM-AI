@@ -50,6 +50,8 @@ import { LocalModelImporterModal } from './components/LocalModelImporterModal';
 import { InfoGuideModal } from './components/InfoGuideModal';
 import { PdfExportModal } from './components/PdfExportModal';
 import { VramHealthModal } from './components/VramHealthModal';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
+import { LegalComplianceModal, LegalTab } from './components/LegalComplianceModal';
 import { buildPrunedChatHistory, detectTextRepetition, trimRepetitionLoop } from './utils/chatHelpers';
 
 registerCustomModels(prebuiltAppConfig);
@@ -207,6 +209,18 @@ export default function App() {
   const [vramStats, setVramStats] = useState<VramLiveStats | null>(null);
   const [showConfigView, setShowConfigView] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_SETTINGS);
+  const [legalModalTab, setLegalModalTab] = useState<LegalTab | null>(null);
+  const [userFormConsent, setUserFormConsent] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('user_form_consent') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleOpenLegalModal = (tab: LegalTab = 'privacy') => {
+    setLegalModalTab(tab);
+  };
 
   // Online & storage state
   const isOnline = useOnlineStatus();
@@ -1162,6 +1176,7 @@ export default function App() {
         vramStats={vramStats}
         diagnostics={diagnostics}
         disabled={isTyping}
+        onOpenLegalModal={handleOpenLegalModal}
       />
 
       {/* Main View Area: Either ModelSetupView or ChatArea */}
@@ -1190,6 +1205,7 @@ export default function App() {
           isSidebarOpen={isSidebarOpen}
           hasPastMessages={messages.length > 0}
           onViewMessages={() => setShowConfigView(false)}
+          onOpenLegalModal={handleOpenLegalModal}
         />
       ) : (
         <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0 relative">
@@ -1343,6 +1359,23 @@ export default function App() {
         onRunHealthCheck={runModelHealthCheck}
         onReloadPipeline={handleReloadPipeline}
         onUnloadPipeline={handleUnloadPipeline}
+      />
+
+      {/* Cookie & Storage Transparency Consent Banner */}
+      <CookieConsentBanner onOpenLegalModal={handleOpenLegalModal} />
+
+      {/* Comprehensive Legal & Compliance Center (Privacy, Terms, Cookies, Refund, Business Info) */}
+      <LegalComplianceModal
+        isOpen={legalModalTab !== null}
+        onClose={() => setLegalModalTab(null)}
+        initialTab={legalModalTab || 'privacy'}
+        userFormConsent={userFormConsent}
+        onToggleFormConsent={(val) => {
+          setUserFormConsent(val);
+          try {
+            localStorage.setItem('user_form_consent', String(val));
+          } catch {}
+        }}
       />
     </div>
   );

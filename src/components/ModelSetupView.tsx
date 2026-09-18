@@ -40,6 +40,7 @@ interface ModelSetupViewProps {
   isSidebarOpen: boolean;
   hasPastMessages?: boolean;
   onViewMessages?: () => void;
+  onOpenLegalModal?: (tab: 'privacy' | 'terms' | 'cookies' | 'refund' | 'business') => void;
 }
 
 export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
@@ -62,7 +63,8 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
   onToggleSidebar,
   isSidebarOpen,
   hasPastMessages,
-  onViewMessages
+  onViewMessages,
+  onOpenLegalModal
 }) => {
   const currentModel = models.find((m) => m.id === selectedModel) || models[0];
 
@@ -205,30 +207,30 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
                 </div>
               </div>
 
-              {/* Spec Badges Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-white/[0.06]">
-                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+              {/* Spec Badges Grid - Single Line, Anti-Slop Compliant, Never Truncated */}
+              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-white/[0.06]">
+                <div className="flex items-center gap-1.5 text-white/80 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
                   <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span className="truncate">
+                  <span className="whitespace-nowrap text-[11px]">
                     <strong className="text-white font-medium">Params:</strong> {currentModel.params || '~4B Dense'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+                <div className="flex items-center gap-1.5 text-white/80 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
                   <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="truncate">
-                    <strong className="text-white font-medium">Context:</strong> {currentModel.contextLength || '32K Tokens'}
+                  <span className="whitespace-nowrap text-[11px]">
+                    <strong className="text-white font-medium">Context:</strong> {currentModel.contextLength || '128K Tokens'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+                <div className="flex items-center gap-1.5 text-white/80 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <span className="truncate" title={currentModel.license || 'Open License'}>
-                    <strong className="text-white font-medium">License:</strong> {currentModel.license ? 'NVIDIA Open (Comm. OK)' : 'Apache-2.0'}
+                  <span className="whitespace-nowrap text-[11px]" title={currentModel.license || 'NVIDIA Open License'}>
+                    <strong className="text-white font-medium">License:</strong> {currentModel.license || 'NVIDIA Open'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-white/70 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
+                <div className="flex items-center gap-1.5 text-white/80 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
                   <Brain className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                  <span className="truncate">
-                    <strong className="text-white font-medium">Modes:</strong> {currentModel.modalities ? 'Dual (Direct & Reasoning)' : 'Text-to-Text'}
+                  <span className="whitespace-nowrap text-[11px]">
+                    <strong className="text-white font-medium">Modes:</strong> {currentModel.modalities || 'Reasoning & Direct'}
                   </span>
                 </div>
               </div>
@@ -411,21 +413,34 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
 
           {/* Error Message with Clean Reset Option */}
           {status === 'error' && (
-            <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-800/40 text-xs text-rose-300 space-y-2">
+            <div className="p-4 rounded-2xl bg-rose-950/30 border border-rose-800/40 text-xs text-rose-300 space-y-2.5">
               <div className="flex items-center gap-1.5 font-medium text-rose-200">
                 <AlertTriangle className="w-4 h-4 text-rose-400" />
                 <span>Initialization Notice</span>
               </div>
-              <p className="text-white/60 text-[11px] leading-relaxed">{errorMsg}</p>
-              <div className="pt-1">
+              <p className="text-white/70 text-[11px] leading-relaxed">{errorMsg}</p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => onInitEngine(selectedModel)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass-button text-xs text-white cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.1] hover:bg-white/[0.18] text-xs text-white transition-colors cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Retry Initialization</span>
                 </button>
+                {selectedModel.toLowerCase().includes('nemotron') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectModel('Qwen3-4B-q4f16_1-MLC');
+                      onInitEngine('Qwen3-4B-q4f16_1-MLC');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs text-emerald-300 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Load Compatible 4B WebGPU</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -475,6 +490,37 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
               </button>
             )}
           </div>
+
+          {/* Legal & Compliance Footer Links */}
+          {onOpenLegalModal && (
+            <div className="pt-2 text-center text-[11px] text-white/40 flex items-center justify-center gap-3 border-t border-white/[0.04]">
+              <span>100% On-Device WebGPU</span>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => onOpenLegalModal('privacy')}
+                className="hover:text-emerald-400 hover:underline cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => onOpenLegalModal('terms')}
+                className="hover:text-emerald-400 hover:underline cursor-pointer"
+              >
+                Terms of Use
+              </button>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => onOpenLegalModal('cookies')}
+                className="hover:text-emerald-400 hover:underline cursor-pointer"
+              >
+                Cookies
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

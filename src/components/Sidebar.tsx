@@ -38,6 +38,7 @@ interface SidebarProps {
   vramStats?: VramLiveStats | null;
   diagnostics: Diagnostics;
   disabled: boolean;
+  onOpenLegalModal?: (tab: 'privacy' | 'terms' | 'cookies' | 'refund' | 'business') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -56,7 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenVramMonitor,
   vramStats,
   diagnostics,
-  disabled
+  disabled,
+  onOpenLegalModal
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -399,6 +401,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
             </div>
+
+            {/* Privacy & Legal Compliance Link */}
+            {onOpenLegalModal && (
+              <div className="pt-2 flex items-center justify-between text-[11px] text-white/40 px-1 border-t border-white/[0.04]">
+                <button
+                  type="button"
+                  id="sidebar-legal-btn"
+                  onClick={() => onOpenLegalModal('privacy')}
+                  className="inline-flex items-center gap-1 hover:text-emerald-400 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck className="w-3 h-3 text-emerald-400/80" />
+                  <span>Privacy &amp; Terms</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenLegalModal('cookies')}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  Cookies
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </aside>
