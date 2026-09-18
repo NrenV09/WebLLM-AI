@@ -139,10 +139,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Activity className={`w-3.5 h-3.5 ${vramStats && vramStats.allocatedMB > 0 ? 'text-blue-400' : 'text-white/50'} animate-pulse shrink-0`} />
               <span className="font-mono font-semibold">
                 {vramStats && vramStats.allocatedMB > 0
-                  ? `${vramStats.allocatedMB.toLocaleString()} MB`
+                  ? `${vramStats.allocatedMB.toLocaleString()} MB VRAM`
                   : status === 'ready'
                     ? '0 MB VRAM ⚠️'
-                    : 'VRAM'}
+                    : vramStats?.jsHeapUsedMB
+                      ? `${vramStats.jsHeapUsedMB} MB Heap`
+                      : 'VRAM'}
               </span>
               <span className="hidden md:inline text-[11px] font-normal opacity-80">
                 {vramStats?.isHealthy === true ? '• Verified' : vramStats?.isHealthy === false ? '• Error' : status === 'ready' && vramStats?.allocatedMB ? '• Ready' : status === 'ready' ? '• Check' : ''}

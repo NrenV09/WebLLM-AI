@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Layers
 } from 'lucide-react';
-import { ModelInfo, DetailedProgress, AISettings, VramLiveStats } from '../types';
+import { ModelInfo, DetailedProgress, AISettings, VramLiveStats, Diagnostics } from '../types';
 
 interface ModelSetupViewProps {
   models: ModelInfo[];
@@ -36,6 +36,7 @@ interface ModelSetupViewProps {
   onOpenSettings: () => void;
   onOpenVramMonitor?: () => void;
   vramStats?: VramLiveStats | null;
+  diagnostics?: Diagnostics;
   onToggleSidebar: () => void;
   isSidebarOpen: boolean;
   hasPastMessages?: boolean;
@@ -60,6 +61,7 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
   onOpenSettings,
   onOpenVramMonitor,
   vramStats,
+  diagnostics,
   onToggleSidebar,
   isSidebarOpen,
   hasPastMessages,
@@ -180,7 +182,7 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
             >
               {models.map((m) => (
                 <option key={m.id} value={m.id} className="bg-black text-white">
-                  {m.name} ({m.vramMB} MB)
+                  {m.name}
                 </option>
               ))}
             </select>
@@ -267,6 +269,76 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
               )}
             </div>
           )}
+
+          {/* Actual Real-Time Memory & Hardware Telemetry */}
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-pulse" />
+                <span className="text-xs font-semibold text-white">Actual Memory &amp; System Telemetry</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-300 font-mono">
+                  LIVE
+                </span>
+              </div>
+              {onOpenVramMonitor && (
+                <button
+                  type="button"
+                  id="setup-open-vram-monitor-btn"
+                  onClick={onOpenVramMonitor}
+                  className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+                >
+                  <span>Inspect VRAM</span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+              {/* Physical Device RAM */}
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05] space-y-0.5">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">Physical RAM</span>
+                <span className="font-medium text-white font-mono truncate block text-xs">
+                  {diagnostics?.deviceMemoryGB
+                    ? `${diagnostics.deviceMemoryGB} GB`
+                    : vramStats?.deviceMemoryGB
+                      ? `${vramStats.deviceMemoryGB} GB`
+                      : 'Unified Memory'}
+                </span>
+              </div>
+
+              {/* Browser JS Heap */}
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05] space-y-0.5">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">Browser Heap</span>
+                <span className="font-medium text-white font-mono truncate block text-xs">
+                  {vramStats?.jsHeapUsedMB
+                    ? `${vramStats.jsHeapUsedMB.toLocaleString()} MB`
+                    : diagnostics?.jsHeapUsedMB
+                      ? `${diagnostics.jsHeapUsedMB.toLocaleString()} MB`
+                      : 'Dynamic'}
+                </span>
+              </div>
+
+              {/* WebGPU Max Storage Buffer Limit */}
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05] space-y-0.5">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">Max GPU Buffer</span>
+                <span className="font-medium text-white font-mono truncate block text-xs">
+                  {diagnostics?.maxStorageBufferMB
+                    ? `${diagnostics.maxStorageBufferMB.toLocaleString()} MB`
+                    : 'Dynamic limit'}
+                </span>
+              </div>
+
+              {/* Live WebGPU Allocation */}
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05] space-y-0.5">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">WebGPU VRAM</span>
+                <span className={`font-medium font-mono truncate block text-xs ${vramStats && vramStats.allocatedMB > 0 ? 'text-emerald-400 font-semibold' : 'text-white/60'}`}>
+                  {vramStats && vramStats.allocatedMB > 0
+                    ? `${vramStats.allocatedMB.toLocaleString()} MB Active`
+                    : '0 MB (Standby)'}
+                </span>
+              </div>
+            </div>
+          </div>
 
           {/* Optional Reasoning Mode Toggle (Thinking Trace) */}
           {(currentModel?.supportsReasoningToggle || selectedModel.toLowerCase().includes('nemotron') || selectedModel.toLowerCase().includes('qwen')) && (

@@ -383,7 +383,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Activity className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-pulse" />
                   <span className="truncate text-[11px]">
-                    {vramStats && vramStats.allocatedMB > 0 ? `${vramStats.allocatedMB}M` : 'VRAM'}
+                    {vramStats && vramStats.allocatedMB > 0
+                      ? `${vramStats.allocatedMB}M`
+                      : vramStats?.jsHeapUsedMB
+                        ? `${vramStats.jsHeapUsedMB}M`
+                        : 'VRAM'}
                   </span>
                 </button>
               )}

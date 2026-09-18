@@ -66,6 +66,10 @@ export interface Diagnostics {
   storageUsageMB: number | null;
   storagePersisted: boolean;
   serviceWorkerActive: boolean;
+  deviceMemoryGB?: number | null;
+  jsHeapUsedMB?: number | null;
+  jsHeapTotalMB?: number | null;
+  jsHeapLimitMB?: number | null;
 }
 
 export interface DetailedProgress {
@@ -99,5 +103,11 @@ export interface VramLiveStats {
     error?: string;
     sampleToken?: string;
   };
+  deviceMemoryGB?: number | null;
+  jsHeapUsedMB?: number | null;
+  jsHeapTotalMB?: number | null;
+  jsHeapLimitMB?: number | null;
+  storageUsageMB?: number | null;
+  storageQuotaMB?: number | null;
 }
 

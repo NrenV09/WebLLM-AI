@@ -190,7 +190,7 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
                   {currentModel.name}
                 </span>
                 <span className="text-[11px] font-mono text-white/40 shrink-0">
-                  (~{expectedMB} MB required)
+                  {isEngineReady && allocatedMB > 0 ? `(${allocatedMB.toLocaleString()} MB active)` : '(Hardware Managed)'}
                 </span>
               </div>
 
@@ -259,12 +259,24 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
               </div>
             </div>
 
-            {/* Visual VRAM Progress Bar */}
+            {/* Visual Real-Time Memory Utilization Bar */}
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between text-[11px] text-white/60">
-                <span>GPU Allocation vs Target ({expectedMB} MB)</span>
-                <span className="font-mono font-medium">
-                  {vramAllocationRatio > 0 ? `${Math.min(100, Math.round(vramAllocationRatio))}%` : '0%'}
+                <span>
+                  {allocatedMB > 0
+                    ? `Live WebGPU Allocation vs Hardware Buffer Limit (${maxStorageBufferMB ? `${maxStorageBufferMB.toLocaleString()} MB` : 'Dynamic'})`
+                    : vramStats?.jsHeapUsedMB
+                      ? `Browser Heap Allocation (${vramStats.jsHeapUsedMB.toLocaleString()} MB Used)`
+                      : 'Real-Time Memory Allocation'}
+                </span>
+                <span className="font-mono font-medium text-white/90">
+                  {allocatedMB > 0 && maxStorageBufferMB
+                    ? `${Math.min(100, Math.round((allocatedMB / maxStorageBufferMB) * 100))}%`
+                    : vramStats?.jsHeapUsedMB && vramStats?.jsHeapLimitMB
+                      ? `${Math.min(100, Math.round((vramStats.jsHeapUsedMB / vramStats.jsHeapLimitMB) * 100))}%`
+                      : allocatedMB > 0
+                        ? `${allocatedMB.toLocaleString()} MB`
+                        : '0%'}
                 </span>
               </div>
               <div className="h-2.5 w-full bg-white/[0.06] rounded-full overflow-hidden relative">
@@ -279,7 +291,15 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
                           : 'bg-white/20'
                   }`}
                   style={{
-                    width: `${Math.min(100, Math.max(isEngineReady && allocatedMB > 0 ? 8 : 0, vramAllocationRatio))}%`
+                    width: `${
+                      allocatedMB > 0 && maxStorageBufferMB
+                        ? Math.min(100, Math.max(8, Math.round((allocatedMB / maxStorageBufferMB) * 100)))
+                        : vramStats?.jsHeapUsedMB && vramStats?.jsHeapLimitMB
+                          ? Math.min(100, Math.max(6, Math.round((vramStats.jsHeapUsedMB / vramStats.jsHeapLimitMB) * 100)))
+                          : isEngineReady && allocatedMB > 0
+                            ? 15
+                            : 0
+                    }%`
                   }}
                 />
               </div>
@@ -403,13 +423,47 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
             )}
           </div>
 
-          {/* WebGPU Hardware & Execution Diagnostics */}
+          {/* WebGPU Hardware, System Memory & Environment Diagnostics */}
           <div className="space-y-2">
             <div className="text-[10px] text-white/40 uppercase tracking-wider font-semibold px-1">
-              WebGPU &amp; Device Environment
+              Actual Hardware &amp; System Memory Telemetry
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                <span className="text-[10px] text-white/40 uppercase font-mono">Physical RAM</span>
+                <p className="text-white font-medium font-mono">
+                  {vramStats?.deviceMemoryGB || diagnostics.deviceMemoryGB
+                    ? `${vramStats?.deviceMemoryGB || diagnostics.deviceMemoryGB} GB`
+                    : 'Unified Memory'}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                <span className="text-[10px] text-white/40 uppercase font-mono">Browser JS Heap</span>
+                <p className="text-white font-medium font-mono">
+                  {vramStats?.jsHeapUsedMB
+                    ? `${vramStats.jsHeapUsedMB.toLocaleString()} MB`
+                    : diagnostics.jsHeapUsedMB
+                      ? `${diagnostics.jsHeapUsedMB.toLocaleString()} MB`
+                      : 'Dynamic'}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                <span className="text-[10px] text-white/40 uppercase font-mono">Max GPU Buffer</span>
+                <p className="text-white font-medium font-mono">
+                  {maxStorageBufferMB ? `${maxStorageBufferMB.toLocaleString()} MB` : 'Dynamic limit'}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                <span className="text-[10px] text-white/40 uppercase font-mono">Disk &amp; Cache</span>
+                <p className="text-white font-medium font-mono">
+                  {diagnostics.storageUsageMB ? `${diagnostics.storageUsageMB.toLocaleString()} MB` : '0 MB'}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1 sm:col-span-2">
                 <span className="text-[10px] text-white/40 uppercase font-mono">Adapter</span>
                 <p className="text-white font-medium truncate" title={diagnostics.adapterName || 'Default Adapter'}>
                   {diagnostics.adapterName || 'WebGPU High-Perf Adapter'}
@@ -419,14 +473,7 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
               <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
                 <span className="text-[10px] text-white/40 uppercase font-mono">Execution Thread</span>
                 <p className="text-white font-medium capitalize">
-                  {executionMode === 'worker' ? 'Web Worker (Background)' : 'Main Thread'}
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
-                <span className="text-[10px] text-white/40 uppercase font-mono">Max Storage Buffer</span>
-                <p className="text-white font-medium font-mono">
-                  {maxStorageBufferMB ? `${maxStorageBufferMB.toLocaleString()} MB` : 'Dynamic limit'}
+                  {executionMode === 'worker' ? 'Web Worker' : 'Main Thread'}
                 </p>
               </div>
 

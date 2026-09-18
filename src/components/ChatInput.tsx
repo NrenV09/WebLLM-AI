@@ -119,7 +119,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       >
                         <div className="flex flex-col">
                           <span className="text-[13px]">{m.name}</span>
-                          <span className="text-[11px] text-white/40">{m.sizeLabel || `${m.vramMB} MB VRAM`}</span>
+                          <span className="text-[11px] text-white/40">{m.sizeLabel || m.params || 'On-Device WebGPU'}</span>
                         </div>
                         {isSelected && (
                           <span className="w-1.5 h-1.5 rounded-full bg-[#a8c7fa] shadow-[0_0_6px_rgba(168,199,250,0.8)]"></span>

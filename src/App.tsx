@@ -41,6 +41,7 @@ import {
   DEFAULT_SETTINGS 
 } from './storage';
 import { useOnlineStatus, requestPersistentStorage, getStorageStatus } from './utils/offlineManager';
+import { queryActualSystemMemory, parseWebLLMRuntimeStats } from './utils/memoryStats';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { SettingsModal } from './components/SettingsModal';
@@ -100,13 +101,13 @@ function parseProgressTelemetry(report: InitProgressReport, modelVram: number): 
     totalShards = parseInt(shardMatch[2], 10);
   }
 
-  const totalEstimatedMB = modelVram || 2600;
+  const totalEstimatedMB = modelVram || (totalShards > 0 ? totalShards * 128 : 0);
 
   let mbProcessed = 0;
-  const mbMatch = text.match(/(\d+)\s*MB\s*(?:fetched|loaded|downloaded)/i);
+  const mbMatch = text.match(/(\d+(?:\.\d+)?)\s*MB\s*(?:fetched|loaded|downloaded)/i);
   if (mbMatch) {
-    mbProcessed = parseInt(mbMatch[1], 10);
-  } else if (report.progress > 0) {
+    mbProcessed = Math.round(parseFloat(mbMatch[1]));
+  } else if (report.progress > 0 && totalEstimatedMB > 0) {
     mbProcessed = Math.round(report.progress * totalEstimatedMB);
   }
 
@@ -181,7 +182,7 @@ export default function App() {
     currentShard: 0,
     totalShards: 0,
     mbProcessed: 0,
-    totalEstimatedMB: 2600,
+    totalEstimatedMB: 0,
     speedMBs: 0,
     timeElapsed: 0,
     etaSeconds: null,
@@ -338,6 +339,7 @@ export default function App() {
     }
 
     const storageInfo = await getStorageStatus();
+    const mem = await queryActualSystemMemory();
 
     setDiagnostics({
       isIpadOrIos: isIosDevice,
@@ -349,10 +351,14 @@ export default function App() {
       supportsFp16,
       maxStorageBufferMB,
       maxBufferSizeMB,
-      storageQuotaMB: storageInfo.quotaMB,
-      storageUsageMB: storageInfo.usageMB,
-      storagePersisted: storageInfo.persisted,
+      storageQuotaMB: mem.storageQuotaMB || storageInfo.quotaMB,
+      storageUsageMB: mem.storageUsageMB || storageInfo.usageMB,
+      storagePersisted: mem.storagePersisted || storageInfo.persisted,
       serviceWorkerActive: storageInfo.isServiceWorkerReady,
+      deviceMemoryGB: mem.deviceMemoryGB,
+      jsHeapUsedMB: mem.jsHeapUsedMB,
+      jsHeapTotalMB: mem.jsHeapTotalMB,
+      jsHeapLimitMB: mem.jsHeapLimitMB,
     });
 
     if (!webGpuSupported) {
@@ -645,6 +651,7 @@ export default function App() {
   // Real-time VRAM & memory telemetry query
   const fetchVramStats = async (): Promise<VramLiveStats | null> => {
     const currentModelObj = registeredModels.find(m => m.id === selectedModel) || MODELS[0];
+    const liveMem = await queryActualSystemMemory();
 
     if (!engineRef.current) {
       const unloadedStats: VramLiveStats = {
@@ -655,7 +662,13 @@ export default function App() {
         maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
         lastPolledAt: Date.now(),
         status: status === 'loading' ? 'loading' : 'unloaded',
-        isHealthy: null
+        isHealthy: null,
+        deviceMemoryGB: liveMem.deviceMemoryGB,
+        jsHeapUsedMB: liveMem.jsHeapUsedMB,
+        jsHeapTotalMB: liveMem.jsHeapTotalMB,
+        jsHeapLimitMB: liveMem.jsHeapLimitMB,
+        storageUsageMB: liveMem.storageUsageMB,
+        storageQuotaMB: liveMem.storageQuotaMB,
       };
       setVramStats(unloadedStats);
       return unloadedStats;
@@ -663,31 +676,24 @@ export default function App() {
 
     try {
       const statsText = await engineRef.current.runtimeStatsText();
-      let peakMB = 0;
-      let allMB = 0;
-      let submissions = 0;
-
-      if (statsText) {
-        const peakMatch = statsText.match(/peak-memory=(\d+)/);
-        if (peakMatch) peakMB = parseInt(peakMatch[1], 10);
-
-        const allMatch = statsText.match(/all-memory=(\d+)/);
-        if (allMatch) allMB = parseInt(allMatch[1], 10);
-
-        const shaderMatch = statsText.match(/shader-submissions=(\d+)/);
-        if (shaderMatch) submissions = parseInt(shaderMatch[1], 10);
-      }
+      const parsedStats = parseWebLLMRuntimeStats(statsText || '');
 
       const updatedStats: VramLiveStats = {
-        allocatedMB: allMB,
-        peakAllocatedMB: Math.max(peakMB, allMB),
-        shaderSubmissions: submissions,
+        allocatedMB: parsedStats.allocatedMB,
+        peakAllocatedMB: Math.max(parsedStats.peakMB, parsedStats.allocatedMB),
+        shaderSubmissions: parsedStats.shaderSubmissions,
         expectedModelVramMB: currentModelObj.vramMB,
         maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
         lastPolledAt: Date.now(),
         status: status === 'ready' ? 'ready' : (status === 'loading' ? 'loading' : 'unloaded'),
-        isHealthy: vramStats?.isHealthy ?? (allMB > 0 ? null : false),
-        healthCheckResult: vramStats?.healthCheckResult
+        isHealthy: vramStats?.isHealthy ?? (parsedStats.allocatedMB > 0 ? null : false),
+        healthCheckResult: vramStats?.healthCheckResult,
+        deviceMemoryGB: liveMem.deviceMemoryGB,
+        jsHeapUsedMB: liveMem.jsHeapUsedMB,
+        jsHeapTotalMB: liveMem.jsHeapTotalMB,
+        jsHeapLimitMB: liveMem.jsHeapLimitMB,
+        storageUsageMB: liveMem.storageUsageMB,
+        storageQuotaMB: liveMem.storageQuotaMB,
       };
 
       setVramStats(updatedStats);
@@ -723,27 +729,19 @@ export default function App() {
       const latencyMs = Math.round(performance.now() - start);
       const token = response?.choices?.[0]?.message?.content || 'OK';
 
-      // Re-read live VRAM to show updated shader passes
-      let peakMB = 0;
-      let allMB = 0;
-      let submissions = 0;
+      // Re-read live VRAM to show updated shader passes and actual memory
+      const liveMem = await queryActualSystemMemory();
+      let statsText = '';
       try {
-        const statsText = await engineRef.current.runtimeStatsText();
-        if (statsText) {
-          const peakMatch = statsText.match(/peak-memory=(\d+)/);
-          if (peakMatch) peakMB = parseInt(peakMatch[1], 10);
-          const allMatch = statsText.match(/all-memory=(\d+)/);
-          if (allMatch) allMB = parseInt(allMatch[1], 10);
-          const shaderMatch = statsText.match(/shader-submissions=(\d+)/);
-          if (shaderMatch) submissions = parseInt(shaderMatch[1], 10);
-        }
+        statsText = await engineRef.current.runtimeStatsText();
       } catch {}
+      const parsedStats = parseWebLLMRuntimeStats(statsText || '');
 
       const currentModelObj = registeredModels.find(m => m.id === selectedModel) || MODELS[0];
       const verifiedStats: VramLiveStats = {
-        allocatedMB: allMB,
-        peakAllocatedMB: Math.max(peakMB, allMB),
-        shaderSubmissions: submissions,
+        allocatedMB: parsedStats.allocatedMB,
+        peakAllocatedMB: Math.max(parsedStats.peakMB, parsedStats.allocatedMB),
+        shaderSubmissions: parsedStats.shaderSubmissions,
         expectedModelVramMB: currentModelObj.vramMB,
         maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
         lastPolledAt: Date.now(),
@@ -753,7 +751,13 @@ export default function App() {
           latencyMs,
           testedAt: Date.now(),
           sampleToken: token
-        }
+        },
+        deviceMemoryGB: liveMem.deviceMemoryGB,
+        jsHeapUsedMB: liveMem.jsHeapUsedMB,
+        jsHeapTotalMB: liveMem.jsHeapTotalMB,
+        jsHeapLimitMB: liveMem.jsHeapLimitMB,
+        storageUsageMB: liveMem.storageUsageMB,
+        storageQuotaMB: liveMem.storageQuotaMB,
       };
 
       setVramStats(verifiedStats);
@@ -761,6 +765,7 @@ export default function App() {
     } catch (err: any) {
       const latencyMs = Math.round(performance.now() - start);
       const errMsg = err?.message || 'WebGPU compute execution failure';
+      const liveMem = await queryActualSystemMemory();
 
       const currentModelObj = registeredModels.find(m => m.id === selectedModel) || MODELS[0];
       setVramStats(prev => ({
@@ -774,6 +779,12 @@ export default function App() {
           status: 'error'
         }),
         isHealthy: false,
+        deviceMemoryGB: liveMem.deviceMemoryGB,
+        jsHeapUsedMB: liveMem.jsHeapUsedMB,
+        jsHeapTotalMB: liveMem.jsHeapTotalMB,
+        jsHeapLimitMB: liveMem.jsHeapLimitMB,
+        storageUsageMB: liveMem.storageUsageMB,
+        storageQuotaMB: liveMem.storageQuotaMB,
         healthCheckResult: {
           latencyMs,
           testedAt: Date.now(),
@@ -1201,6 +1212,7 @@ export default function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenVramMonitor={() => setIsVramModalOpen(true)}
           vramStats={vramStats}
+          diagnostics={diagnostics}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSidebarOpen={isSidebarOpen}
           hasPastMessages={messages.length > 0}
