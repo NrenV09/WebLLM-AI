@@ -167,6 +167,8 @@ export const LocalModelImporterModal: React.FC<LocalModelImporterModalProps> = (
       let bytesWritten = 0;
       const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
 
+      let uploadedWasmUrl: string | null = null;
+
       // Store each file into CacheStorage
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -180,27 +182,62 @@ export const LocalModelImporterModal: React.FC<LocalModelImporterModalProps> = (
 
         const mimeType = file.name.endsWith('.json') 
           ? 'application/json' 
+          : file.name.endsWith('.wasm')
+          ? 'application/wasm'
           : 'application/octet-stream';
 
         const response = new Response(arrayBuffer, {
           headers: {
             'Content-Type': mimeType,
             'Content-Length': file.size.toString(),
-            'X-Imported-From-Local': 'true'
+            'X-Imported-From-Local': 'true',
+            'Cache-Control': 'public, max-age=31536000, immutable'
           }
         });
 
-        await cache.put(targetUrl, response);
+        await cache.put(targetUrl, response.clone());
+
+        // Mirror mlc-chat-config.json to webllm/config for offline engine lookup
+        if (file.name === 'mlc-chat-config.json') {
+          try {
+            const configCache = await caches.open('webllm/config');
+            await configCache.put(targetUrl, response.clone());
+          } catch {}
+        }
+
+        // If local wasm file is provided, store in webllm/wasm
+        if (file.name.endsWith('.wasm')) {
+          try {
+            const wasmCache = await caches.open('webllm/wasm');
+            await wasmCache.put(targetUrl, response.clone());
+            uploadedWasmUrl = targetUrl;
+          } catch {}
+        }
+
         bytesWritten += file.size;
       }
 
-      setImportProgress({ percent: 100, currentFile: 'Finalizing model registration...' });
+      setImportProgress({ percent: 100, currentFile: 'Finalizing offline model registration...' });
 
       // Determine wasm library
-      let wasm = customWasmLib;
-      if (selectedArch !== 'custom') {
+      let wasm = uploadedWasmUrl || customWasmLib;
+      if (!uploadedWasmUrl && selectedArch !== 'custom') {
         const arch = ARCHITECTURE_TEMPLATES.find(a => a.id === selectedArch);
         wasm = arch ? arch.wasmLib : ARCHITECTURE_TEMPLATES[0].wasmLib;
+      }
+
+      // Pre-cache wasm runtime into webllm/wasm so it runs completely offline
+      if (wasm && wasm.startsWith('http')) {
+        try {
+          const wasmCache = await caches.open('webllm/wasm');
+          const hasWasm = await wasmCache.match(wasm);
+          if (!hasWasm && typeof navigator !== 'undefined' && navigator.onLine) {
+            const wRes = await fetch(wasm);
+            if (wRes.ok) {
+              await wasmCache.put(wasm, wRes);
+            }
+          }
+        } catch {}
       }
 
       const newRecord = {

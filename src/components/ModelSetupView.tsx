@@ -18,6 +18,7 @@ import {
   Layers
 } from 'lucide-react';
 import { ModelInfo, DetailedProgress, AISettings, VramLiveStats, Diagnostics } from '../types';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface ModelSetupViewProps {
   models: ModelInfo[];
@@ -95,6 +96,7 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <PWAInstallButton />
           {hasPastMessages && onViewMessages && (
             <button
               type="button"

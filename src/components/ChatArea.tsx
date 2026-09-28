@@ -13,6 +13,7 @@ import {
 import { ChatMessage, ModelInfo, Diagnostics, VramLiveStats } from '../types';
 import { MessageItem } from './MessageItem';
 import { ChatInput } from './ChatInput';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface ChatAreaProps {
   messages: ChatMessage[];
@@ -155,6 +156,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <PWAInstallButton />
           {onOpenInfoGuide && (
             <button
               onClick={onOpenInfoGuide}

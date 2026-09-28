@@ -472,11 +472,12 @@ export async function printChatSessionViaBrowser(
   const container = doc.createElement('div');
   doc.body.appendChild(container);
 
-  // Link KaTeX stylesheet into the iframe
-  const link = doc.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://cdn.jsdelivr.net/npm/katex@0.18.1/dist/katex.min.css';
-  doc.head.appendChild(link);
+  // Copy all bundled stylesheets and style tags (including bundled KaTeX & Tailwind) from parent window
+  // for 100% offline printing with zero network requests
+  const parentStyles = document.querySelectorAll('style, link[rel="stylesheet"]');
+  parentStyles.forEach((node) => {
+    doc.head.appendChild(node.cloneNode(true));
+  });
 
   const root = createRoot(container);
   root.render(

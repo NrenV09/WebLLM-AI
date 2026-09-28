@@ -13,8 +13,10 @@ export async function registerServiceWorker(): Promise<boolean> {
   }
 
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/',
+    const swPath = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') + '/sw.js';
+    const scope = import.meta.env.BASE_URL || '/';
+    const registration = await navigator.serviceWorker.register(swPath, {
+      scope,
     });
     
     // Check if installed/active
