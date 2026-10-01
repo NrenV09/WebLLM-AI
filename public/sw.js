@@ -26,13 +26,22 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: cleanup old versioned caches except model weight & wasm caches
+// Activate: cleanup old versioned shell caches only; NEVER evict model weights, wasm, or config caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => key !== SHELL_CACHE && !key.includes('webllm') && !key.includes('tvmjs') && !key.includes('mlc'))
+          .filter((key) => 
+            key !== SHELL_CACHE && 
+            !key.includes('webllm') && 
+            !key.includes('tvmjs') && 
+            !key.includes('mlc') &&
+            !key.includes('model') &&
+            !key.includes('wasm') &&
+            !key.includes('config') &&
+            !key.includes('qwen')
+          )
           .map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())

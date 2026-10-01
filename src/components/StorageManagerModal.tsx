@@ -47,6 +47,9 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [confirmClearModels, setConfirmClearModels] = useState(false);
+  const [confirmClearChats, setConfirmClearChats] = useState(false);
+
   if (!isOpen) return null;
 
   const handlePersist = async () => {
@@ -98,10 +101,8 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
   };
 
   const handleClearModels = async () => {
-    if (!window.confirm('Are you sure you want to clear cached model weights? The model will need to be downloaded again on next use.')) {
-      return;
-    }
     setIsClearing(true);
+    setConfirmClearModels(false);
     try {
       await onClearModelCache();
       await onRefreshDiagnostics();
@@ -114,9 +115,7 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
   };
 
   const handleClearAllChats = async () => {
-    if (!window.confirm('Are you sure you want to delete ALL conversations? This cannot be undone.')) {
-      return;
-    }
+    setConfirmClearChats(false);
     try {
       await clearAllSessions();
       await onReloadSessions();
@@ -304,23 +303,70 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
             <label className="block text-xs font-semibold text-white/40 uppercase tracking-wider">
               Maintenance & Cleanup
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleClearModels}
-                disabled={isClearing}
-                className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.1] text-xs text-white/80 transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
-              >
-                <Trash2 className="w-4 h-4 text-white/60" />
-                <span>{isClearing ? 'Clearing...' : 'Clear Model Weights'}</span>
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {confirmClearModels ? (
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-2">
+                  <span className="text-xs text-rose-200">Delete cached weights?</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleClearModels}
+                      disabled={isClearing}
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold cursor-pointer"
+                    >
+                      {isClearing ? 'Deleting...' : 'Confirm'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClearModels(false)}
+                      className="px-2 py-1 rounded-lg glass-button text-white/70 text-[11px] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearModels(true)}
+                  disabled={isClearing}
+                  className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.1] text-xs text-white/80 transition-colors cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+                >
+                  <Trash2 className="w-4 h-4 text-white/60" />
+                  <span>Clear Model Weights</span>
+                </button>
+              )}
 
-              <button
-                onClick={handleClearAllChats}
-                className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.1] text-xs text-white/80 transition-colors cursor-pointer active:scale-[0.98]"
-              >
-                <Trash2 className="w-4 h-4 text-white/60" />
-                <span>Clear All Chats</span>
-              </button>
+              {confirmClearChats ? (
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-2">
+                  <span className="text-xs text-rose-200">Delete all chats?</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleClearAllChats}
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold cursor-pointer"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClearChats(false)}
+                      className="px-2 py-1 rounded-lg glass-button text-white/70 text-[11px] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearChats(true)}
+                  className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.1] text-xs text-white/80 transition-colors cursor-pointer active:scale-[0.98]"
+                >
+                  <Trash2 className="w-4 h-4 text-white/60" />
+                  <span>Clear All Chats</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

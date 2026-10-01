@@ -222,13 +222,13 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
                 <div className="flex items-center gap-1.5 text-white/80 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
                   <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span className="whitespace-nowrap text-[11px]">
-                    <strong className="text-white font-medium">Context:</strong> {currentModel.contextLength || '128K Tokens'}
+                    <strong className="text-white font-medium">Context:</strong> {currentModel.contextLength || '32K Tokens'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-white/80 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <span className="whitespace-nowrap text-[11px]" title={currentModel.license || 'NVIDIA Open License'}>
-                    <strong className="text-white font-medium">License:</strong> {currentModel.license || 'NVIDIA Open'}
+                  <span className="whitespace-nowrap text-[11px]" title={currentModel.license || 'Apache 2.0 (Open Source)'}>
+                    <strong className="text-white font-medium">License:</strong> {currentModel.license || 'Apache 2.0'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-white/80 bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/[0.05]">
@@ -342,66 +342,27 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
             </div>
           </div>
 
-          {/* Optional Reasoning Mode Toggle (Thinking Trace) */}
-          {(currentModel?.supportsReasoningToggle || selectedModel.toLowerCase().includes('nemotron') || selectedModel.toLowerCase().includes('qwen')) && (
-            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg ${aiSettings.reasoningMode !== false ? 'bg-purple-500/20 text-purple-300' : 'bg-white/10 text-white/50'}`}>
-                    <Brain className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-white block">
-                      Reasoning Trace (Thinking Mode)
-                    </span>
-                    <span className="text-[10px] text-white/50">
-                      {aiSettings.reasoningMode !== false 
-                        ? 'Active: Emits step-by-step thinking in <think> tags' 
-                        : 'Disabled: Direct answers without thinking trace'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUpdateAISettings({
-                      ...aiSettings,
-                      reasoningMode: aiSettings.reasoningMode === false ? true : false
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    aiSettings.reasoningMode !== false
-                      ? 'bg-purple-500/20 border border-purple-500/40 text-purple-200 shadow-sm'
-                      : 'bg-white/[0.05] border border-white/[0.1] text-white/60 hover:text-white'
-                  }`}
-                >
-                  {aiSettings.reasoningMode !== false ? 'Enabled' : 'Direct Only'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Context Window Profile (Including up to 128K tokens for Nemotron) */}
+          {/* Context Window Budget (Pro KV-Cache Parameter) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-white/40 uppercase tracking-wider">
-                Context Window Profile
+              <span className="font-semibold text-white/50 uppercase tracking-wider">
+                KV-Cache Context Window
               </span>
-              <span className="font-mono text-white/70 text-[11px]">
-                {aiSettings.contextWindowSize || (selectedModel.toLowerCase().includes('nemotron') ? 131072 : 3072)} Tokens
+              <span className="font-mono text-white/90 text-[11px] bg-black/60 px-2 py-0.5 rounded border border-white/[0.1]">
+                {(aiSettings.contextWindowSize || 32768).toLocaleString()} Tokens
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[
-                { size: 2048, label: '⚡ 2K Turbo', hint: 'Low VRAM' },
-                { size: 4096, label: '🧠 4K Extended', hint: 'Standard' },
-                { size: 8192, label: '🚀 8K High Output', hint: 'High Output' },
-                { size: 32768, label: '📚 32K Extended', hint: 'Multi-turn' },
-                { size: 65536, label: '📄 64K Document', hint: 'Large Code' },
-                { size: 131072, label: '⚡ 128K Nemotron', hint: 'Full 128K Window' }
+                { size: 2048, label: '2,048 Tokens', hint: '2K Minimal' },
+                { size: 4096, label: '4,096 Tokens', hint: '4K Standard' },
+                { size: 8192, label: '8,192 Tokens', hint: '8K High Output' },
+                { size: 16384, label: '16,384 Tokens', hint: '16K Long Context' },
+                { size: 32768, label: '32,768 Tokens', hint: '32K Qwen Native' },
+                { size: 65536, label: '65,536 Tokens', hint: '64K Document' },
+                { size: 131072, label: '131,072 Tokens', hint: '128K Ultra' }
               ].map((opt) => {
-                const active = (aiSettings.contextWindowSize || (selectedModel.toLowerCase().includes('nemotron') ? 131072 : 3072)) === opt.size;
-                const isNemotronMax = opt.size === 131072;
+                const active = (aiSettings.contextWindowSize || 32768) === opt.size;
                 return (
                   <button
                     key={opt.size}
@@ -412,16 +373,12 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
                     }}
                     className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                       active
-                        ? isNemotronMax
-                          ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200 font-medium shadow-xs ring-1 ring-emerald-500/30'
-                          : 'bg-white/[0.12] border-white/40 text-white font-medium shadow-xs ring-1 ring-white/20'
-                        : isNemotronMax
-                          ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300/80 hover:text-emerald-200 hover:bg-emerald-500/10'
-                          : 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white hover:border-white/[0.14]'
+                        ? 'bg-white/[0.12] border-white/40 text-white font-medium shadow-xs ring-1 ring-white/20'
+                        : 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white hover:border-white/[0.14]'
                     }`}
                   >
-                    <div className="text-xs">{opt.label}</div>
-                    <div className="text-[10px] text-white/40">{opt.hint}</div>
+                    <div className="text-xs font-semibold">{opt.label}</div>
+                    <div className="text-[10px] text-white/40 font-mono">{opt.hint}</div>
                   </button>
                 );
               })}
@@ -549,18 +506,18 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
               )}
             </button>
 
-            {/* Quick 2-Second Test Model shortcut */}
-            {status !== 'loading' && selectedModel !== 'SmolLM2-135M-Instruct-q0f16-MLC' && (
+            {/* Quick Test Model shortcut */}
+            {status !== 'loading' && selectedModel !== 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC' && (
               <button
                 type="button"
                 onClick={() => {
-                  onSelectModel('SmolLM2-135M-Instruct-q0f16-MLC');
-                  onInitEngine('SmolLM2-135M-Instruct-q0f16-MLC');
+                  onSelectModel('Qwen2.5-0.5B-Instruct-q4f16_1-MLC');
+                  onInitEngine('Qwen2.5-0.5B-Instruct-q4f16_1-MLC');
                 }}
                 className="w-full py-2 px-3 rounded-xl glass-button text-white/70 hover:text-white text-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Zap className="w-3.5 h-3.5 text-white" />
-                <span>Instant Test (SmolLM2 135M • 150MB)</span>
+                <span>Instant Test (Qwen 0.5B • Fast WebGPU)</span>
               </button>
             )}
           </div>

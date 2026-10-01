@@ -256,11 +256,7 @@ export default function App() {
   }>({ isComplete: false, percent: 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
   const initAbortControllerRef = useRef<AbortController | null>(null);
 
-  // Inactivity tracking
-  const lastActivityRef = useRef<number>(Date.now());
-  const inactivityTimerRef = useRef<any>(null);
-
-  // Unload WebGPU pipeline completely
+  // Unload WebGPU pipeline completely (manual action only; models do not auto-evict on idle)
   const handleUnloadPipeline = async () => {
     if (engineRef.current) {
       try {
@@ -275,36 +271,12 @@ export default function App() {
       initAbortControllerRef.current = null;
     }
     setStatus('initial');
-    setIsCached(false);
     setVramStats(null);
+    checkModelParamProgress(selectedModel).then(res => {
+      setIsCached(res.isComplete);
+      setParamStatus(res);
+    }).catch(() => {});
   };
-
-  useEffect(() => {
-    // Check for inactivity every minute
-    inactivityTimerRef.current = setInterval(() => {
-      const now = Date.now();
-      const idleTimeMs = now - lastActivityRef.current;
-      // 15 minutes = 15 * 60 * 1000 = 900000 ms
-      if (idleTimeMs > 900000 && engineRef.current && status === 'ready' && !isTyping) {
-        console.log('Unloading model due to 15 minutes of inactivity.');
-        handleUnloadPipeline();
-      }
-    }, 60000);
-    
-    const updateActivity = () => { lastActivityRef.current = Date.now(); };
-    window.addEventListener('mousemove', updateActivity);
-    window.addEventListener('keydown', updateActivity);
-    window.addEventListener('click', updateActivity);
-    window.addEventListener('touchstart', updateActivity);
-
-    return () => {
-      clearInterval(inactivityTimerRef.current);
-      window.removeEventListener('mousemove', updateActivity);
-      window.removeEventListener('keydown', updateActivity);
-      window.removeEventListener('click', updateActivity);
-      window.removeEventListener('touchstart', updateActivity);
-    };
-  }, [status, isTyping]);
 
   const runDiagnostics = async () => {
     const ua = navigator.userAgent || '';
@@ -366,10 +338,17 @@ export default function App() {
     }
   };
 
-  // Load chats & settings on start
+  // Load chats & settings on start and lock persistent storage against cache eviction
   useEffect(() => {
     runDiagnostics();
-    requestPersistentStorage().then(() => runDiagnostics()).catch(() => {});
+    const lockStorage = () => {
+      requestPersistentStorage().then((persisted) => {
+        if (persisted) runDiagnostics();
+      }).catch(() => {});
+    };
+    lockStorage();
+    window.addEventListener('click', lockStorage, { once: true });
+    window.addEventListener('keydown', lockStorage, { once: true });
 
     // Load persisted settings
     loadAISettings().then((cfg) => {
@@ -378,11 +357,22 @@ export default function App() {
 
     // Load persisted sessions from IndexedDB
     loadAllSessions().then((loaded) => {
+      const validModelIds = new Set(MODELS.map(m => m.id));
       if (loaded && loaded.length > 0) {
-        setSessions(loaded);
-        setActiveSessionId(loaded[0].id);
+        const sanitized = loaded.map(s => {
+          if (!validModelIds.has(s.modelId)) {
+            return { ...s, modelId: MODELS[0].id };
+          }
+          return s;
+        });
+        setSessions(sanitized);
+        setActiveSessionId(sanitized[0].id);
+        if (!validModelIds.has(selectedModel)) {
+          setSelectedModel(MODELS[0].id);
+        }
       } else {
-        const initSession = createNewSession(selectedModel);
+        const initialModel = validModelIds.has(selectedModel) ? selectedModel : MODELS[0].id;
+        const initSession = createNewSession(initialModel);
         setSessions([initSession]);
         setActiveSessionId(initSession.id);
         saveSession(initSession).catch(() => {});
@@ -943,22 +933,11 @@ export default function App() {
     setSessions(updatedSessionsList);
     await saveSession(updatedSession);
 
-    const isPhiModel = selectedModel.toLowerCase().includes('phi');
-    const isNemotronModel = selectedModel.toLowerCase().includes('nemotron');
+    // Context & System prompt handling for Qwen Reasoning Mode (<think> tags)
+    // Use developer's precise system prompt directly without forced mutation
+    const effectiveSystemPrompt = aiSettings.systemPrompt || DEFAULT_SETTINGS.systemPrompt;
 
-    // Context & System prompt handling for Nemotron Dual Reasoning Mode
-    let effectiveSystemPrompt = aiSettings.systemPrompt;
-    if (isNemotronModel) {
-      if (aiSettings.reasoningMode !== false) {
-        if (!effectiveSystemPrompt.includes('<think>')) {
-          effectiveSystemPrompt += '\n\nReasoning Mode Active: Analyze problems step-by-step and enclose your intermediate thinking inside <think>...</think> tags before giving the final answer.';
-        }
-      } else {
-        effectiveSystemPrompt += '\n\nDirect Response Mode: Provide an immediate, concise answer without producing reasoning traces or <think> tags.';
-      }
-    }
-
-    const defaultContext = isNemotronModel ? 131072 : 3072;
+    const defaultContext = 32768;
     // Build pruned chat context for model with sliding window budget
     const chatHistory = buildPrunedChatHistory(
       effectiveSystemPrompt,
@@ -973,9 +952,7 @@ export default function App() {
     let tokenCount = 0;
     let accumulatedText = '';
 
-    const repetitionPenalty = (aiSettings.phi4AntiLooping !== false || isPhiModel)
-      ? Math.max(aiSettings.repetition_penalty || 1.08, 1.18)
-      : (aiSettings.repetition_penalty || 1.08);
+    const repetitionPenalty = aiSettings.repetition_penalty || 1.05;
 
     try {
       const completion = await engineRef.current.chat.completions.create({
@@ -1013,7 +990,7 @@ export default function App() {
           accumulatedText += delta;
           tokenCount++;
 
-          // Phi-4 Mini Repetition Loop Guard
+          // Repetition Loop Guard
           if (aiSettings.phi4AntiLooping !== false && detectTextRepetition(accumulatedText)) {
             accumulatedText = trimRepetitionLoop(accumulatedText);
             try {

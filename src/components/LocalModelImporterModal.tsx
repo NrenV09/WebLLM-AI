@@ -27,34 +27,14 @@ interface LocalModelImporterModalProps {
 
 const ARCHITECTURE_TEMPLATES = [
   {
-    id: 'nemotron',
-    name: 'NVIDIA Nemotron-3-Nano-4B (WebGPU)',
-    wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Qwen2.5-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm'
-  },
-  {
     id: 'qwen',
     name: 'Qwen 2.5 / Qwen 3 (WebGPU)',
     wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Qwen2.5-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm'
   },
   {
-    id: 'phi',
-    name: 'Phi-4 / Phi-3.5 Mini (WebGPU)',
-    wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Phi-3.5-mini-instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm'
-  },
-  {
-    id: 'smollm',
-    name: 'SmolLM2 Architecture (WebGPU)',
-    wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/SmolLM2-135M-Instruct-q4f16_1_cs1k-webgpu.wasm'
-  },
-  {
-    id: 'llama',
-    name: 'Llama 3 / 3.1 / 3.2 (WebGPU)',
-    wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Llama-3.2-3B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm'
-  },
-  {
-    id: 'gemma',
-    name: 'Gemma 2 (WebGPU)',
-    wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/gemma-2-2b-it-q4f16_1-ctx4k_cs1k-webgpu.wasm'
+    id: 'qwen-coder',
+    name: 'Qwen 2.5 Coder (WebGPU)',
+    wasmLib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/Qwen2.5-Coder-7B-Instruct-q4f16_1_cs1k-webgpu.wasm'
   },
   {
     id: 'custom',

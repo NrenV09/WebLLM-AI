@@ -11,14 +11,10 @@ const LOCAL_STORAGE_SETTINGS_KEY = 'webgpu_local_settings_v1';
 export const DEFAULT_SETTINGS: AISettings = {
   temperature: 0.6,
   top_p: 0.9,
-  repetition_penalty: 1.08,
+  repetition_penalty: 1.05,
   max_tokens: 4096,
-  contextWindowSize: 32768, // Allow up to 32K context by default if model supports it
-  phi4AntiLooping: true,
-  ipadOptimization: true,
-  appleSiliconOptimized: true,
-  reasoningMode: true,
-  systemPrompt: 'You are a helpful, brilliant, and precise AI assistant. When analyzing complex problems, performing multi-step reasoning, or writing mathematical derivations or code, wrap your internal reasoning in <think>...</think> tags before providing the final answer.\n\nSTRICT LATEX FORMATTING RULES:\n1. Inline math: $...$ (e.g. $E = mc^2$)\n2. Display block math: $$...$$ on separate lines.'
+  contextWindowSize: 32768, // Professional 32K context window budget
+  systemPrompt: 'You are Qwen, a brilliant, helpful, and precise AI assistant powered by WebGPU. Provide structured, accurate responses with rigorous logic and code.\n\nSTRICT LATEX FORMATTING RULES:\n1. Inline math: $...$ (e.g. $E = mc^2$)\n2. Display block math: $$...$$ on separate lines.'
 };
 
 export function sanitizeSession(session: ChatSession): ChatSession {

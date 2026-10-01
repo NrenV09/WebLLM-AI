@@ -49,7 +49,7 @@ export interface AISettings {
   phi4AntiLooping?: boolean;
   ipadOptimization?: boolean;
   appleSiliconOptimized?: boolean;
-  reasoningMode?: boolean; // Optional reasoning mode for Nemotron and thinking models
+  reasoningMode?: boolean; // Optional reasoning mode for Qwen thinking models
 }
 
 export interface Diagnostics {

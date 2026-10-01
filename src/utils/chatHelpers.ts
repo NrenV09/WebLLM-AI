@@ -51,8 +51,7 @@ export function buildPrunedChatHistory(
 }
 
 /**
- * Detects if model generation has entered an infinite text repetition loop
- * (common with certain quantizations like Phi-4 Mini on small contexts).
+ * Detects if model generation has entered an infinite text repetition loop.
  */
 export function detectTextRepetition(text: string): boolean {
   if (!text || text.length < 90) return false;

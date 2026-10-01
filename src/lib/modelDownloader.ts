@@ -1,5 +1,6 @@
 import { prebuiltAppConfig, hasModelInCache } from '@mlc-ai/web-llm';
 import { DetailedProgress } from '../types';
+import { requestPersistentStorage } from '../utils/offlineManager';
 
 export interface ShardRecord {
   dataPath: string;
@@ -169,6 +170,9 @@ export async function downloadModelParameters(
       `Cannot download '${modelId}' while offline. Please connect to the internet to download, or use 'Import Model from Local Storage' to import offline model files.`
     );
   }
+
+  // Request persistent storage to lock model weights against browser cache eviction
+  await requestPersistentStorage().catch(() => {});
 
   const modelUrl = cleanModelUrl(modelRecord.model);
   const cache = await caches.open('webllm/model');
@@ -458,7 +462,8 @@ export async function downloadModelParameters(
     }
   } catch {}
 
-  // Final verification
+  // Final verification and anti-eviction lock
+  await requestPersistentStorage().catch(() => {});
   await hasModelInCache(modelId, prebuiltAppConfig).catch(() => true);
 
   onProgress({

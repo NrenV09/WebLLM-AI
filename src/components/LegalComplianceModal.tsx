@@ -181,8 +181,7 @@ export const LegalComplianceModal: React.FC<LegalComplianceModalProps> = ({
                   Models accessible in this app are distributed under their respective open licenses:
                 </p>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>NVIDIA Nemotron-3-Nano-4B:</strong> Distributed under the NVIDIA Open Model License (commercial use permitted in compliance with NVIDIA terms).</li>
-                  <li><strong>Qwen & Phi Models:</strong> Distributed under Apache 2.0 and Microsoft Research licenses respectively.</li>
+                  <li><strong>Qwen Models:</strong> Distributed under permissive Apache 2.0 open-source license.</li>
                   <li><strong>Application Source:</strong> Licensed under permissive MIT open-source terms.</li>
                 </ul>
 
