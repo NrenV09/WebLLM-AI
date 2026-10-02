@@ -1,6 +1,10 @@
 import { prebuiltAppConfig, hasModelInCache } from '@mlc-ai/web-llm';
 import { DetailedProgress } from '../types';
 import { requestPersistentStorage } from '../utils/offlineManager';
+import { registerCustomModels } from '../modelsConfig';
+
+// Ensure custom models (DeepSeek-R1-Distill-Qwen-1.5B) are registered in prebuiltAppConfig
+registerCustomModels(prebuiltAppConfig);
 
 export interface ShardRecord {
   dataPath: string;

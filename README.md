@@ -53,9 +53,12 @@ The visual design is inspired by the iPadOS liquid glass design paradigm and min
 
 | Model | Parameters | Quantization | Approx. Weights | VRAM Footprint | Best Suited For |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| **DeepSeek-R1-Distill-Qwen-1.5B** | 1.5 Billion | `q4f16_1` / `q4f32_1` | ~1.6 GB | ~1.6 GB – 1.9 GB | Deep reasoning, `<think>` reflection, math, logic & coding (< 2GB) |
 | **Qwen3 4B** | 4.0 Billion | `q4f16_1` | ~2.5 GB | 2.8 GB – 3.4 GB | Deep multi-step reasoning, mathematical deduction & coding |
-| **Phi-4 Mini** | 3.8 Billion | `q4f16_1` | ~2.5 GB | 2.8 GB – 3.3 GB | Advanced scientific logic, concise instruction-following |
-| **Phi-3.5 Mini** | 3.8 Billion | `q4f16_1` | ~2.4 GB | 2.6 GB – 3.1 GB | High-speed everyday chat, summaries & balanced dialogue |
+| **Qwen2.5 3B Instruct** | 3.0 Billion | `q4f16_1` | ~2.0 GB | 2.5 GB – 3.0 GB | Balanced everyday chat, multilingual comprehension |
+| **Qwen2.5 Coder 7B** | 7.0 Billion | `q4f16_1` | ~4.5 GB | 5.1 GB – 5.8 GB | Code intelligence, system architecture, bug fixing |
+| **Qwen2.5 1.5B Instruct** | 1.5 Billion | `q4f16_1` | ~1.5 GB | 1.6 GB – 2.0 GB | Ultra-fast lightweight execution on mobile & low VRAM |
+| **Qwen2.5 0.5B** | 0.5 Billion | `q4f16_1` | ~600 MB | ~950 MB | Instant WebGPU compute shader verification |
 
 ---
 
