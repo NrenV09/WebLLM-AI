@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -10,12 +10,11 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const distDir = path.join(__dirname, 'dist');
 
-// Serve static assets from dist
+// Serve static assets from dist with caching and Cross-Origin isolation for WebAssembly / WebGPU
 if (fs.existsSync(distDir)) {
   app.use(express.static(distDir, {
     maxAge: '1h',
-    setHeaders: (res, filePath) => {
-      // Set permissive headers for WebAssembly / SharedArrayBuffer if needed
+    setHeaders: (res) => {
       res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
       res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
     }
@@ -23,7 +22,7 @@ if (fs.existsSync(distDir)) {
 }
 
 // Fallback to index.html for client-side routing (SPA)
-app.get('*', (req: Request, res: Response) => {
+app.get('*', (req, res) => {
   const indexHtml = path.join(distDir, 'index.html');
   if (fs.existsSync(indexHtml)) {
     res.sendFile(indexHtml);

@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const distDir = path.join(__dirname, 'dist');
 
-// Serve static assets from dist
+// Serve static assets from dist with caching and Cross-Origin isolation for WebAssembly / WebGPU
 if (fs.existsSync(distDir)) {
   app.use(express.static(distDir, {
     maxAge: '1h',
