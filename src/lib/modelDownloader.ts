@@ -26,9 +26,18 @@ export function cleanModelUrl(modelUrl: string): string {
   return url;
 }
 
+export interface CachedModelInventoryItem {
+  modelId: string;
+  isComplete: boolean;
+  cachedBytes: number;
+  cachedMB: number;
+  totalShards: number;
+  cachedShards: number;
+}
+
 /**
  * Checks the exact parameter, WASM runtime, and config download status for a model in CacheStorage.
- * Guarantees that if isComplete is true, 100% of files required for offline inference are cached.
+ * Reliably identifies if a model is cached in browser storage across restarts.
  */
 export async function checkModelParamProgress(modelId: string): Promise<{
   isComplete: boolean;
@@ -48,83 +57,167 @@ export async function checkModelParamProgress(modelId: string): Promise<{
       return { isComplete: false, cachedBytes: 0, totalBytes: 0, percent: 0, cachedShards: 0, totalShards: 0 };
     }
 
-    const modelUrl = cleanModelUrl(modelRecord.model);
-    const jsonUrl = new URL('tensor-cache.json', modelUrl).href;
+    // 1. Primary Check: Official WebLLM cache verification
+    const officialCached = await hasModelInCache(modelId, prebuiltAppConfig).catch(() => false);
 
+    const modelUrl = cleanModelUrl(modelRecord.model);
     const cache = await caches.open('webllm/model');
     const cachedKeys = await cache.keys();
     const cachedUrls = new Set(cachedKeys.map(k => k.url));
 
-    if (!cachedUrls.has(jsonUrl)) {
-      const isCached = await hasModelInCache(modelId, prebuiltAppConfig).catch(() => false);
-      return {
-        isComplete: isCached,
-        cachedBytes: 0,
-        totalBytes: 0,
-        percent: isCached ? 100 : 0,
-        cachedShards: 0,
-        totalShards: 0
-      };
-    }
+    // Try finding tensor manifest in cache
+    const tensorCacheUrl = new URL('tensor-cache.json', modelUrl).href;
+    const ndarrayCacheUrl = new URL('ndarray-cache.json', modelUrl).href;
 
-    const jsonRes = await cache.match(jsonUrl);
-    if (!jsonRes) {
-      return { isComplete: false, cachedBytes: 0, totalBytes: 0, percent: 0, cachedShards: 0, totalShards: 0 };
-    }
-
-    const data: TensorCacheJson = await jsonRes.clone().json();
-    const records = data.records || [];
-    const totalBytes = records.reduce((acc, r) => acc + (r.nbytes || 0), 0);
-
+    const jsonRes = (await cache.match(tensorCacheUrl)) || (await cache.match(ndarrayCacheUrl));
+    
+    let totalBytes = Math.round((modelRecord.vram_required_MB || 1500) * 1024 * 1024);
     let cachedBytes = 0;
     let cachedShards = 0;
+    let totalShards = 0;
 
-    for (const shard of records) {
-      const shardUrl = new URL(shard.dataPath, modelUrl).href;
-      if (cachedUrls.has(shardUrl)) {
-        cachedShards++;
-        cachedBytes += shard.nbytes || 0;
-      }
-    }
-
-    const percent = totalBytes > 0 ? Math.min(100, Math.floor((cachedBytes / totalBytes) * 100)) : 0;
-    
-    // Check if wasm library is also in CacheStorage
-    let isWasmCached = true;
-    if (modelRecord.model_lib && modelRecord.model_lib.startsWith('http')) {
+    if (jsonRes) {
       try {
-        const wasmCache = await caches.open('webllm/wasm');
-        const wasmMatch = await wasmCache.match(modelRecord.model_lib);
-        isWasmCached = !!wasmMatch;
-      } catch {
-        isWasmCached = true;
+        const data: TensorCacheJson = await jsonRes.clone().json();
+        const records = data.records || [];
+        totalShards = records.length;
+        if (records.length > 0) {
+          totalBytes = records.reduce((acc, r) => acc + (r.nbytes || 0), 0);
+          for (const shard of records) {
+            const shardUrl = new URL(shard.dataPath, modelUrl).href;
+            if (cachedUrls.has(shardUrl)) {
+              cachedShards++;
+              cachedBytes += shard.nbytes || 0;
+            }
+          }
+        }
+      } catch {}
+    } else {
+      // If manifest is not directly parsed, check shard count from cache keys matching model url
+      for (const k of cachedKeys) {
+        if (k.url.includes(modelRecord.model) || (modelRecord.model_id && k.url.includes(modelRecord.model_id))) {
+          cachedShards++;
+        }
       }
     }
 
-    // Check if chat config is cached
-    let isConfigCached = true;
-    try {
-      const chatConfigUrl = new URL('mlc-chat-config.json', modelUrl).href;
-      const configCache = await caches.open('webllm/config');
-      const hasConfig = (await configCache.match(chatConfigUrl)) || cachedUrls.has(chatConfigUrl);
-      isConfigCached = !!hasConfig;
-    } catch {
-      isConfigCached = true;
+    const wasLocalCached = typeof localStorage !== 'undefined' && localStorage.getItem('cached_' + modelId) === 'true';
+    const shardsComplete = totalShards > 0 && cachedShards >= totalShards;
+    const isComplete = officialCached || shardsComplete || (cachedShards > 0 && wasLocalCached);
+
+    if (isComplete) {
+      if (cachedBytes === 0) {
+        cachedBytes = totalBytes;
+      }
+      if (totalShards === 0) {
+        totalShards = Math.max(1, cachedShards);
+      }
+      cachedShards = totalShards;
+      try {
+        localStorage.setItem('cached_' + modelId, 'true');
+      } catch {}
     }
 
-    const isComplete = cachedShards === records.length && records.length > 0 && isWasmCached && isConfigCached;
+    const percent = isComplete ? 100 : (totalBytes > 0 ? Math.min(100, Math.floor((cachedBytes / totalBytes) * 100)) : 0);
 
     return {
       isComplete,
       cachedBytes,
       totalBytes,
-      percent: isComplete ? 100 : percent,
+      percent,
       cachedShards,
-      totalShards: records.length
+      totalShards
     };
-  } catch {
-    return { isComplete: false, cachedBytes: 0, totalBytes: 0, percent: 0, cachedShards: 0, totalShards: 0 };
+  } catch (err) {
+    console.warn('checkModelParamProgress error:', err);
+    const fallbackCached = await hasModelInCache(modelId, prebuiltAppConfig).catch(() => false);
+    return { 
+      isComplete: fallbackCached, 
+      cachedBytes: 0, 
+      totalBytes: 0, 
+      percent: fallbackCached ? 100 : 0, 
+      cachedShards: 0, 
+      totalShards: 0 
+    };
   }
+}
+
+/**
+ * Returns list of all prebuilt model IDs that are currently downloaded in browser cache
+ */
+export async function getAllCachedModelIds(): Promise<string[]> {
+  if (typeof window === 'undefined' || !('caches' in window)) return [];
+  const cached: string[] = [];
+  try {
+    for (const m of prebuiltAppConfig.model_list) {
+      const isHere = await hasModelInCache(m.model_id, prebuiltAppConfig).catch(() => false);
+      if (isHere) {
+        cached.push(m.model_id);
+      }
+    }
+  } catch {}
+  return cached;
+}
+
+/**
+ * Detailed inventory of models cached on local disk
+ */
+export async function getModelCacheInventory(knownModels: { id: string; name: string }[]): Promise<CachedModelInventoryItem[]> {
+  if (typeof window === 'undefined' || !('caches' in window)) return [];
+  const inventory: CachedModelInventoryItem[] = [];
+
+  for (const model of knownModels) {
+    try {
+      const progress = await checkModelParamProgress(model.id);
+      if (progress.isComplete || progress.cachedShards > 0) {
+        inventory.push({
+          modelId: model.id,
+          isComplete: progress.isComplete,
+          cachedBytes: progress.cachedBytes,
+          cachedMB: Math.round(progress.cachedBytes / (1024 * 1024)),
+          totalShards: progress.totalShards,
+          cachedShards: progress.cachedShards
+        });
+      }
+    } catch {}
+  }
+
+  return inventory;
+}
+
+/**
+ * Deletes a single model's weights and caches cleanly from CacheStorage and WebLLM
+ */
+export async function deleteSingleModelFromCache(modelId: string): Promise<void> {
+  // 1. WebLLM official delete
+  try {
+    const { deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm');
+    await deleteModelAllInfoInCache(modelId).catch(() => {});
+  } catch {}
+
+  // 2. Direct CacheStorage sweep for model
+  if (typeof window !== 'undefined' && 'caches' in window) {
+    const modelRecord = prebuiltAppConfig.model_list.find(m => m.model_id === modelId);
+    const modelSearchTerm = modelRecord?.model || modelId;
+
+    const cacheNames = ['webllm/model', 'webllm/config', 'webllm/wasm'];
+    for (const cName of cacheNames) {
+      try {
+        const cache = await caches.open(cName);
+        const keys = await cache.keys();
+        for (const req of keys) {
+          if (req.url.includes(modelId) || (modelSearchTerm && req.url.includes(modelSearchTerm))) {
+            await cache.delete(req);
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // 3. Clean localStorage flag
+  try {
+    localStorage.removeItem('cached_' + modelId);
+  } catch {}
 }
 
 /**

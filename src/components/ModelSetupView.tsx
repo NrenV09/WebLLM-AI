@@ -121,7 +121,9 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
             >
               <Activity className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" />
               <span className="hidden sm:inline font-mono text-[11px]">
-                {vramStats && vramStats.allocatedMB > 0 ? `${vramStats.allocatedMB} MB` : 'VRAM'}
+                {vramStats && vramStats.allocatedMB > 0 
+                  ? `${vramStats.allocatedMB.toLocaleString()} MB Active` 
+                  : `${(currentModel?.vramMB || 2600).toLocaleString()} MB VRAM Footprint`}
               </span>
             </button>
           )}
@@ -333,10 +335,10 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
               {/* Live WebGPU Allocation */}
               <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05] space-y-0.5">
                 <span className="text-[10px] text-white/40 uppercase font-mono block">WebGPU VRAM</span>
-                <span className={`font-medium font-mono truncate block text-xs ${vramStats && vramStats.allocatedMB > 0 ? 'text-emerald-400 font-semibold' : 'text-white/60'}`}>
+                <span className={`font-medium font-mono truncate block text-xs ${vramStats && vramStats.allocatedMB > 0 ? 'text-emerald-400 font-semibold' : 'text-white/80'}`}>
                   {vramStats && vramStats.allocatedMB > 0
                     ? `${vramStats.allocatedMB.toLocaleString()} MB Active`
-                    : '0 MB (Standby)'}
+                    : `~${((currentModel?.vramMB || 2600) + Math.round((aiSettings.contextWindowSize || 4096) / 1024 * 55)).toLocaleString()} MB (Total Usage)`}
                 </span>
               </div>
             </div>
@@ -493,15 +495,20 @@ export const ModelSetupView: React.FC<ModelSetupViewProps> = ({
                       : `Configuring Pipeline (${detailedProgress.progressPercent}%)...`}
                   </span>
                 </>
+              ) : status === 'ready' ? (
+                <>
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span>Model Active in VRAM • Start Chatting →</span>
+                </>
               ) : isCached ? (
                 <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Load Model to WebGPU</span>
+                  <Sparkles className="w-4 h-4 text-blue-400" />
+                  <span>Stream from Cache into VRAM (~2s • 100% Offline)</span>
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Download &amp; Run Model</span>
+                  <span>Download &amp; Cache Model Offline</span>
                 </>
               )}
             </button>

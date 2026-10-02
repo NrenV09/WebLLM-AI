@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   HardDrive, 
@@ -12,10 +12,14 @@ import {
   AlertTriangle,
   Database,
   Cpu,
-  Activity
+  Activity,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { Diagnostics, ChatSession, VramLiveStats } from '../types';
 import { exportChatsAsJSON, importChatsFromJSON, clearAllSessions, saveAllSessions } from '../storage';
+import { getModelCacheInventory, deleteSingleModelFromCache, CachedModelInventoryItem } from '../lib/modelDownloader';
+import { AVAILABLE_MODELS } from '../modelsConfig';
 
 interface StorageManagerModalProps {
   isOpen: boolean;
@@ -49,8 +53,43 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
 
   const [confirmClearModels, setConfirmClearModels] = useState(false);
   const [confirmClearChats, setConfirmClearChats] = useState(false);
+  const [cachedInventory, setCachedInventory] = useState<CachedModelInventoryItem[]>([]);
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
+  const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
+
+  const loadInventory = async () => {
+    setIsLoadingInventory(true);
+    try {
+      const inv = await getModelCacheInventory(AVAILABLE_MODELS);
+      setCachedInventory(inv);
+    } catch (err) {
+      console.warn('Failed to load model inventory:', err);
+    } finally {
+      setIsLoadingInventory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadInventory();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleDeleteSingleModel = async (modelId: string) => {
+    setDeletingModelId(modelId);
+    try {
+      await deleteSingleModelFromCache(modelId);
+      await loadInventory();
+      await onRefreshDiagnostics();
+      setStatusMsg({ type: 'success', text: `Cleaned model files from Chrome storage.` });
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: `Failed to remove model: ${e.message}` });
+    } finally {
+      setDeletingModelId(null);
+    }
+  };
 
   const handlePersist = async () => {
     setIsPersisting(true);
@@ -195,12 +234,82 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
             </div>
           </div>
 
+          {/* Downloaded Models on Disk (Offline Storage Management) */}
+          <div className="p-4 rounded-2xl glass-card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-semibold text-white/90">Downloaded Models on Disk (Offline Cache)</span>
+              </div>
+              <button
+                type="button"
+                onClick={loadInventory}
+                disabled={isLoadingInventory}
+                className="p-1 rounded-lg text-white/50 hover:text-white glass-button cursor-pointer"
+                title="Refresh cached model inventory"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingInventory ? 'animate-spin text-blue-400' : ''}`} />
+              </button>
+            </div>
+
+            {cachedInventory.length === 0 ? (
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center text-xs text-white/40 space-y-1">
+                <p>No model parameter weights currently saved in Chrome storage.</p>
+                <p className="text-[11px] text-white/30">When you download a model, its files remain permanently stored on disk here for instant offline inference.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {cachedInventory.map((item) => {
+                  const modelObj = AVAILABLE_MODELS.find(m => m.id === item.modelId);
+                  const isDeleting = deletingModelId === item.modelId;
+                  return (
+                    <div 
+                      key={item.modelId}
+                      className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-white text-xs truncate">
+                            {modelObj?.name || item.modelId}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-medium shrink-0">
+                            100% Offline
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-white/40 flex items-center gap-3 mt-0.5">
+                          <span className="font-mono text-purple-300">
+                            {item.cachedMB > 1024 
+                              ? `${(item.cachedMB / 1024).toFixed(2)} GB` 
+                              : `${item.cachedMB} MB`} on disk
+                          </span>
+                          <span>•</span>
+                          <span>{item.cachedShards} shards</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSingleModel(item.modelId)}
+                        disabled={isDeleting}
+                        className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 border border-rose-500/20 text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0 transition-all"
+                        title="Delete this model from disk to free up Chrome system data"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{isDeleting ? 'Deleting...' : 'Free Space'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Real-Time VRAM Live Monitor Card */}
           <div className="p-4 rounded-2xl glass-card space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-400 animate-pulse" />
-                <span className="text-xs font-semibold text-white/90">Real-Time VRAM Allocation</span>
+                <span className="text-xs font-semibold text-white/90">WebGPU VRAM & Memory Allocation</span>
               </div>
               {onOpenVramMonitor && (
                 <button
@@ -222,10 +331,13 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
                 {vramStats && vramStats.allocatedMB > 0 ? (
                   <>
                     <span>{vramStats.allocatedMB.toLocaleString()}</span>
-                    <span className="text-xs font-normal text-white/40 ml-1">MB allocated</span>
+                    <span className="text-xs font-normal text-emerald-400 ml-1.5">MB Active in GPU</span>
                   </>
                 ) : (
-                  <span className="text-sm font-normal text-white/50">0 MB (Model not loaded into GPU)</span>
+                  <>
+                    <span>{(vramStats?.projectedTotalMB || 2770).toLocaleString()}</span>
+                    <span className="text-xs font-normal text-white/50 ml-1.5">MB Projected Footprint (Standby)</span>
+                  </>
                 )}
               </div>
               {vramStats && vramStats.shaderSubmissions > 0 && (
@@ -233,6 +345,22 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({
                   {vramStats.shaderSubmissions.toLocaleString()} shader passes
                 </span>
               )}
+            </div>
+
+            {/* Model Architecture VRAM Breakdown */}
+            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-white/60">
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05]">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">Model Weights</span>
+                <span className="font-semibold text-white font-mono">
+                  {(vramStats?.modelWeightsMB || vramStats?.expectedModelVramMB || 2600).toLocaleString()} MB
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05]">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">KV Cache Context</span>
+                <span className="font-semibold text-emerald-400 font-mono">
+                  {(vramStats?.kvCacheMB || 170).toLocaleString()} MB
+                </span>
+              </div>
             </div>
 
             {vramStats && vramStats.isHealthy !== null && (

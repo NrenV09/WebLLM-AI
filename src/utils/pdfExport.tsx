@@ -403,7 +403,7 @@ export async function exportChatSessionToPdf(
 
     onProgress?.('generating');
 
-    // 4. Configure html2pdf
+    // 4. Configure html2pdf for 100% offline execution (zero network requests)
     const sanitizedTitle = (session.title || 'chat_session')
       .replace(/[^a-zA-Z0-9_\- ]/g, '')
       .trim()
@@ -418,12 +418,12 @@ export async function exportChatSessionToPdf(
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
         scale: 2, // 2x high resolution for crisp LaTeX and typography
-        useCORS: true,
-        letterRendering: true,
+        useCORS: false, // Prevents html2canvas from making network requests while offline
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: container.scrollWidth,
-        windowHeight: container.scrollHeight
+        windowWidth: container.scrollWidth || 794,
+        windowHeight: container.scrollHeight || 1123
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }

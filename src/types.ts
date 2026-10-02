@@ -93,6 +93,9 @@ export interface VramLiveStats {
   peakAllocatedMB: number;
   shaderSubmissions: number;
   expectedModelVramMB: number;
+  modelWeightsMB?: number;
+  kvCacheMB?: number;
+  projectedTotalMB?: number;
   maxStorageBufferMB: number | null;
   lastPolledAt: number;
   status: 'unloaded' | 'loading' | 'ready' | 'error' | 'device_lost';

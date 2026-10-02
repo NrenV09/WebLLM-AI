@@ -17,9 +17,11 @@ import {
   Database,
   MoreVertical,
   FileDown,
+  FileCode,
   Activity
 } from 'lucide-react';
 import { ChatSession, Diagnostics, VramLiveStats } from '../types';
+import { downloadChatSessionAsLatex } from '../utils/latexExport';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -455,7 +457,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {contextMenu.session.title}
             </div>
 
-            {/* Save chat as PDF */}
+            {/* Instant Save as LaTeX (.tex) */}
+            <button
+              type="button"
+              id="menu-save-latex-btn"
+              onClick={() => {
+                const s = contextMenu.session;
+                setContextMenu(null);
+                downloadChatSessionAsLatex(s);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-purple-200 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer text-left"
+            >
+              <FileCode className="w-4 h-4 text-purple-400 shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-medium text-white">Save as LaTeX (.tex)</span>
+                <span className="text-[10px] text-purple-300/60">Instant • 100% Offline</span>
+              </div>
+            </button>
+
+            {/* Export as PDF / Print */}
             <button
               type="button"
               id="menu-save-pdf-btn"
@@ -468,8 +488,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <FileDown className="w-4 h-4 text-[#a8c7fa] shrink-0" />
               <div className="flex flex-col min-w-0">
-                <span className="font-medium">Save chat as PDF</span>
-                <span className="text-[10px] text-white/40">Preserves LaTeX math</span>
+                <span className="font-medium">Export as PDF / Print</span>
+                <span className="text-[10px] text-white/40">Offline Vector Print Preview</span>
               </div>
             </button>
 

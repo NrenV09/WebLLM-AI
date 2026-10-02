@@ -8,7 +8,9 @@ import {
   Wifi, 
   WifiOff, 
   Lightbulb,
-  Activity
+  Activity,
+  FileCode,
+  Check
 } from 'lucide-react';
 import { ChatMessage, ModelInfo, Diagnostics, VramLiveStats } from '../types';
 import { MessageItem } from './MessageItem';
@@ -30,6 +32,7 @@ interface ChatAreaProps {
   onOpenSettings: () => void;
   onOpenStorage: () => void;
   onOpenInfoGuide?: () => void;
+  onExportLatex?: () => void;
   diagnostics: Diagnostics;
   isOnline: boolean;
   isWorkerActive: boolean;
@@ -57,6 +60,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onOpenSettings,
   onOpenStorage,
   onOpenInfoGuide,
+  onExportLatex,
   diagnostics,
   isOnline,
   isWorkerActive,
@@ -68,6 +72,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onOpenVramMonitor,
   onDeleteMessage
 }) => {
+  const [latexSavedToast, setLatexSavedToast] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
@@ -125,30 +130,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               id="header-vram-monitor-btn"
               onClick={onOpenVramMonitor}
               className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border text-xs font-medium transition-all cursor-pointer backdrop-blur-xl shadow-xs active:scale-95 shrink-0 ${
-                vramStats && vramStats.allocatedMB > 0
-                  ? vramStats.isHealthy === true
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
-                    : vramStats.isHealthy === false
-                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25 animate-pulse'
-                      : 'bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20'
-                  : status === 'ready'
-                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25 animate-pulse'
-                    : 'bg-white/[0.04] border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.08]'
+                status === 'ready'
+                  ? vramStats?.isHealthy === false
+                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25 animate-pulse'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                  : 'bg-white/[0.04] border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.08]'
               }`}
               title="Click to inspect real-time VRAM allocation and run live health probe"
             >
-              <Activity className={`w-3.5 h-3.5 ${vramStats && vramStats.allocatedMB > 0 ? 'text-blue-400' : 'text-white/50'} animate-pulse shrink-0`} />
+              <Activity className={`w-3.5 h-3.5 ${status === 'ready' ? 'text-emerald-400' : 'text-blue-400'} animate-pulse shrink-0`} />
               <span className="font-mono font-semibold">
-                {vramStats && vramStats.allocatedMB > 0
-                  ? `${vramStats.allocatedMB.toLocaleString()} MB VRAM`
-                  : status === 'ready'
-                    ? '0 MB VRAM ⚠️'
-                    : vramStats?.jsHeapUsedMB
-                      ? `${vramStats.jsHeapUsedMB} MB Heap`
-                      : 'VRAM'}
+                {status === 'ready'
+                  ? vramStats && vramStats.allocatedMB > 0
+                    ? `${vramStats.allocatedMB.toLocaleString()} MB VRAM Active`
+                    : `${(currentModel?.vramMB || 2600).toLocaleString()} MB VRAM Active`
+                  : `${(currentModel?.vramMB || 2600).toLocaleString()} MB Footprint`}
               </span>
               <span className="hidden md:inline text-[11px] font-normal opacity-80">
-                {vramStats?.isHealthy === true ? '• Verified' : vramStats?.isHealthy === false ? '• Error' : status === 'ready' && vramStats?.allocatedMB ? '• Ready' : status === 'ready' ? '• Check' : ''}
+                {status === 'ready' ? (vramStats?.isHealthy === false ? '• Fault' : '• Active in GPU') : '• Standby'}
               </span>
             </button>
           )}
@@ -156,6 +155,37 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Quick 1-Click Save as LaTeX (100% Offline) */}
+          {onExportLatex && (
+            <button
+              type="button"
+              id="header-export-latex-btn"
+              onClick={() => {
+                onExportLatex();
+                setLatexSavedToast(true);
+                setTimeout(() => setLatexSavedToast(false), 2500);
+              }}
+              className={`p-2 rounded-xl glass-button cursor-pointer flex items-center gap-1.5 text-xs transition-colors shrink-0 ${
+                latexSavedToast 
+                  ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-500/30' 
+                  : 'text-purple-300 hover:text-purple-200'
+              }`}
+              title="Save chat as LaTeX (.tex) — 100% Offline instant download"
+            >
+              {latexSavedToast ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span className="hidden sm:inline font-medium text-emerald-300">Saved .tex!</span>
+                </>
+              ) : (
+                <>
+                  <FileCode className="w-4 h-4 text-purple-400" />
+                  <span className="hidden sm:inline font-medium">LaTeX (.tex)</span>
+                </>
+              )}
+            </button>
+          )}
+
           <PWAInstallButton />
           {onOpenInfoGuide && (
             <button

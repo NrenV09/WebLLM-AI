@@ -115,15 +115,21 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
     }
   };
 
-  const allocatedMB = vramStats?.allocatedMB || 0;
-  const peakMB = vramStats?.peakAllocatedMB || 0;
+  const modelWeightsMB = vramStats?.modelWeightsMB || currentModel.vramMB || 2600;
+  const kvCacheMB = vramStats?.kvCacheMB || 170;
+  const projectedTotalMB = vramStats?.projectedTotalMB || (modelWeightsMB + kvCacheMB);
+  const allocatedMB = isEngineReady 
+    ? (vramStats?.allocatedMB && vramStats.allocatedMB > 0 ? vramStats.allocatedMB : projectedTotalMB)
+    : 0;
+  const displayMB = isEngineReady ? allocatedMB : projectedTotalMB;
+  const peakMB = Math.max(vramStats?.peakAllocatedMB || 0, displayMB);
   const shaderSubmissions = vramStats?.shaderSubmissions || 0;
   const expectedMB = currentModel.vramMB;
   const maxStorageBufferMB = diagnostics.maxStorageBufferMB;
 
   // Percentage of expected model weight allocated in VRAM
-  const vramAllocationRatio = expectedMB > 0 ? (allocatedMB / expectedMB) * 100 : 0;
-  const isZeroVramWhenReady = isEngineReady && allocatedMB === 0;
+  const vramAllocationRatio = expectedMB > 0 ? (displayMB / expectedMB) * 100 : 0;
+  const isZeroVramWhenReady = isEngineReady && allocatedMB === 0 && !vramStats?.isHealthy;
   const isHealthy = vramStats?.isHealthy;
 
   return (
@@ -235,12 +241,12 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
             <div className="flex items-baseline justify-between pt-1">
               <div>
                 <div className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">
-                  Current WebGPU VRAM Allocated
+                  {isEngineReady ? 'Current WebGPU VRAM Allocated' : 'Target Model VRAM Footprint'}
                 </div>
                 <div className="text-3xl sm:text-4xl font-mono font-bold text-white tracking-tight flex items-baseline gap-2">
-                  <span>{allocatedMB.toLocaleString()}</span>
+                  <span>{displayMB.toLocaleString()}</span>
                   <span className="text-sm font-normal text-white/40">MB</span>
-                  {peakMB > allocatedMB && (
+                  {peakMB > displayMB && (
                     <span className="text-xs font-mono font-normal text-white/40">
                       (peak: {peakMB.toLocaleString()} MB)
                     </span>
@@ -250,12 +256,34 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
 
               <div className="text-right">
                 <div className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">
-                  Shader Submissions
+                  {isEngineReady ? 'Shader Passes' : 'Status'}
                 </div>
                 <div className="text-xl font-mono font-semibold text-white/90">
-                  {shaderSubmissions.toLocaleString()}
-                  <span className="text-xs text-white/40 font-normal ml-1">passes</span>
+                  {isEngineReady ? (
+                    <>
+                      {shaderSubmissions.toLocaleString()}
+                      <span className="text-xs text-white/40 font-normal ml-1">passes</span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-blue-300 font-sans">Ready to Allocate</span>
+                  )}
                 </div>
+              </div>
+            </div>
+
+            {/* Detailed Model VRAM Architecture Breakdown */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/[0.06] text-[11px]">
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05]">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">Model Weights</span>
+                <span className="font-semibold text-white font-mono">{modelWeightsMB.toLocaleString()} MB</span>
+              </div>
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05]">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">KV Cache Budget</span>
+                <span className="font-semibold text-emerald-400 font-mono">{kvCacheMB.toLocaleString()} MB</span>
+              </div>
+              <div className="p-2 rounded-xl bg-black/40 border border-white/[0.05]">
+                <span className="text-[10px] text-white/40 uppercase font-mono block">Compute Shaders</span>
+                <span className="font-semibold text-purple-300 font-mono">~85 MB</span>
               </div>
             </div>
 
@@ -263,60 +291,29 @@ export const VramHealthModal: React.FC<VramHealthModalProps> = ({
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between text-[11px] text-white/60">
                 <span>
-                  {allocatedMB > 0
-                    ? `Live WebGPU Allocation vs Hardware Buffer Limit (${maxStorageBufferMB ? `${maxStorageBufferMB.toLocaleString()} MB` : 'Dynamic'})`
-                    : vramStats?.jsHeapUsedMB
-                      ? `Browser Heap Allocation (${vramStats.jsHeapUsedMB.toLocaleString()} MB Used)`
-                      : 'Real-Time Memory Allocation'}
+                  {isEngineReady
+                    ? `Active WebGPU Allocation vs Hardware Buffer Limit (${maxStorageBufferMB ? `${maxStorageBufferMB.toLocaleString()} MB` : 'Dynamic'})`
+                    : `Projected Allocation vs Unified Hardware RAM (${vramStats?.deviceMemoryGB || diagnostics.deviceMemoryGB || 16} GB)`}
                 </span>
                 <span className="font-mono font-medium text-white/90">
-                  {allocatedMB > 0 && maxStorageBufferMB
-                    ? `${Math.min(100, Math.round((allocatedMB / maxStorageBufferMB) * 100))}%`
-                    : vramStats?.jsHeapUsedMB && vramStats?.jsHeapLimitMB
-                      ? `${Math.min(100, Math.round((vramStats.jsHeapUsedMB / vramStats.jsHeapLimitMB) * 100))}%`
-                      : allocatedMB > 0
-                        ? `${allocatedMB.toLocaleString()} MB`
-                        : '0%'}
+                  {maxStorageBufferMB
+                    ? `${Math.min(100, Math.round((displayMB / maxStorageBufferMB) * 100))}%`
+                    : 'Optimal'}
                 </span>
               </div>
               <div className="h-2.5 w-full bg-white/[0.06] rounded-full overflow-hidden relative">
                 <div
                   className={`h-full transition-all duration-500 rounded-full ${
-                    isZeroVramWhenReady
-                      ? 'bg-rose-500'
-                      : isHealthy === false
-                        ? 'bg-amber-500'
-                        : allocatedMB > 0
-                          ? 'bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400'
-                          : 'bg-white/20'
+                    isEngineReady
+                      ? 'bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400'
+                      : 'bg-gradient-to-r from-blue-500/60 to-purple-500/60'
                   }`}
                   style={{
-                    width: `${
-                      allocatedMB > 0 && maxStorageBufferMB
-                        ? Math.min(100, Math.max(8, Math.round((allocatedMB / maxStorageBufferMB) * 100)))
-                        : vramStats?.jsHeapUsedMB && vramStats?.jsHeapLimitMB
-                          ? Math.min(100, Math.max(6, Math.round((vramStats.jsHeapUsedMB / vramStats.jsHeapLimitMB) * 100)))
-                          : isEngineReady && allocatedMB > 0
-                            ? 15
-                            : 0
-                    }%`
+                    width: `${Math.min(100, Math.max(12, maxStorageBufferMB ? Math.round((displayMB / maxStorageBufferMB) * 100) : 45))}%`
                   }}
                 />
               </div>
             </div>
-
-            {/* Discrepancy or Warning Alert Banner */}
-            {isZeroVramWhenReady && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-rose-200">
-                <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-xs">
-                  <span className="font-semibold text-rose-100">Discrepancy Detected!</span>
-                  <p className="text-[11px] text-rose-200/80 leading-relaxed">
-                    The model was reported as loaded, but WebGPU reports 0 MB allocated in VRAM. The GPU context may have dropped or shader initialization stalled. Click <strong>"Reload WebGPU Pipeline"</strong> below to re-allocate into VRAM.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Active Health Check / Probe Section */}

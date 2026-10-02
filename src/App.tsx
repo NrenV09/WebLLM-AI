@@ -28,7 +28,7 @@ import {
 import MLCWorker from './worker.ts?worker&inline';
 import { AVAILABLE_MODELS, registerCustomModels } from './modelsConfig';
 import { ChatMessage, ChatSession, Diagnostics, ModelInfo, AISettings, DetailedProgress, VramLiveStats } from './types';
-import { downloadModelParameters, checkModelParamProgress } from './lib/modelDownloader';
+import { downloadModelParameters, checkModelParamProgress, getAllCachedModelIds } from './lib/modelDownloader';
 import { 
   loadAllSessions, 
   saveAllSessions, 
@@ -41,7 +41,8 @@ import {
   DEFAULT_SETTINGS 
 } from './storage';
 import { useOnlineStatus, requestPersistentStorage, getStorageStatus } from './utils/offlineManager';
-import { queryActualSystemMemory, parseWebLLMRuntimeStats } from './utils/memoryStats';
+import { queryActualSystemMemory, parseWebLLMRuntimeStats, getActiveVramAllocation } from './utils/memoryStats';
+import { downloadChatSessionAsLatex } from './utils/latexExport';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { SettingsModal } from './components/SettingsModal';
@@ -191,8 +192,21 @@ export default function App() {
   });
   const [errorMsg, setErrorMsg] = useState('');
   const [registeredModels, setRegisteredModels] = useState<ModelInfo[]>(MODELS);
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
-  const [isCached, setIsCached] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    try {
+      return localStorage.getItem('last_selected_model') || MODELS[0].id;
+    } catch {
+      return MODELS[0].id;
+    }
+  });
+  const [isCached, setIsCached] = useState<boolean>(() => {
+    try {
+      const initialModel = localStorage.getItem('last_selected_model') || MODELS[0].id;
+      return localStorage.getItem('cached_' + initialModel) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [executionMode, setExecutionMode] = useState<'worker' | 'main'>('worker');
 
   // Multi-chat state
@@ -341,6 +355,7 @@ export default function App() {
   // Load chats & settings on start and lock persistent storage against cache eviction
   useEffect(() => {
     runDiagnostics();
+    fetchVramStats().catch(() => {});
     const lockStorage = () => {
       requestPersistentStorage().then((persisted) => {
         if (persisted) runDiagnostics();
@@ -382,15 +397,50 @@ export default function App() {
 
   // Check model cache status & parameter download progress
   useEffect(() => {
-    checkModelParamProgress(selectedModel).then(res => {
-      setParamStatus(res);
-      setIsCached(res.isComplete);
-    }).catch(() => {
-      hasModelInCache(selectedModel, prebuiltAppConfig).then(cached => {
+    let isCurrent = true;
+    try {
+      localStorage.setItem('last_selected_model', selectedModel);
+    } catch {}
+
+    const verifyCache = async () => {
+      try {
+        const [progressRes, officialCached] = await Promise.all([
+          checkModelParamProgress(selectedModel),
+          hasModelInCache(selectedModel, prebuiltAppConfig).catch(() => false)
+        ]);
+
+        if (!isCurrent) return;
+        const complete = progressRes.isComplete || officialCached;
+        setIsCached(complete);
+
+        if (complete) {
+          try {
+            localStorage.setItem('cached_' + selectedModel, 'true');
+          } catch {}
+        }
+
+        setParamStatus({
+          ...progressRes,
+          isComplete: complete,
+          percent: complete ? 100 : progressRes.percent
+        });
+      } catch (err) {
+        if (!isCurrent) return;
+        const cached = await hasModelInCache(selectedModel, prebuiltAppConfig).catch(() => false);
         setIsCached(cached);
-        setParamStatus({ isComplete: cached, percent: cached ? 100 : 0, cachedShards: 0, totalShards: 0, cachedBytes: 0 });
-      }).catch(() => setIsCached(false));
-    });
+        if (cached) {
+          try {
+            localStorage.setItem('cached_' + selectedModel, 'true');
+          } catch {}
+        }
+      }
+    };
+
+    verifyCache();
+    fetchVramStats().catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
   }, [selectedModel]);
 
   // Session Handlers
@@ -642,6 +692,12 @@ export default function App() {
   const fetchVramStats = async (): Promise<VramLiveStats | null> => {
     const currentModelObj = registeredModels.find(m => m.id === selectedModel) || MODELS[0];
     const liveMem = await queryActualSystemMemory();
+    const modelVram = getActiveVramAllocation(
+      0,
+      currentModelObj.vramMB,
+      aiSettings.contextWindowSize || 4096,
+      false
+    );
 
     if (!engineRef.current) {
       const unloadedStats: VramLiveStats = {
@@ -649,6 +705,9 @@ export default function App() {
         peakAllocatedMB: 0,
         shaderSubmissions: 0,
         expectedModelVramMB: currentModelObj.vramMB,
+        modelWeightsMB: modelVram.modelWeightsMB,
+        kvCacheMB: modelVram.kvCacheMB,
+        projectedTotalMB: modelVram.projectedTotalMB,
         maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
         lastPolledAt: Date.now(),
         status: status === 'loading' ? 'loading' : 'unloaded',
@@ -665,18 +724,30 @@ export default function App() {
     }
 
     try {
-      const statsText = await engineRef.current.runtimeStatsText();
-      const parsedStats = parseWebLLMRuntimeStats(statsText || '');
+      let statsText = '';
+      try {
+        statsText = (await engineRef.current.runtimeStatsText(selectedModel)) || (await engineRef.current.runtimeStatsText()) || '';
+      } catch {}
+      const parsedStats = parseWebLLMRuntimeStats(statsText);
+      const activeVram = getActiveVramAllocation(
+        parsedStats.allocatedMB,
+        currentModelObj.vramMB,
+        aiSettings.contextWindowSize || 4096,
+        status === 'ready'
+      );
 
       const updatedStats: VramLiveStats = {
-        allocatedMB: parsedStats.allocatedMB,
-        peakAllocatedMB: Math.max(parsedStats.peakMB, parsedStats.allocatedMB),
+        allocatedMB: activeVram.allocatedMB,
+        peakAllocatedMB: Math.max(activeVram.peakAllocatedMB, parsedStats.peakMB),
         shaderSubmissions: parsedStats.shaderSubmissions,
         expectedModelVramMB: currentModelObj.vramMB,
+        modelWeightsMB: activeVram.modelWeightsMB,
+        kvCacheMB: activeVram.kvCacheMB,
+        projectedTotalMB: activeVram.projectedTotalMB,
         maxStorageBufferMB: diagnostics.maxStorageBufferMB || null,
         lastPolledAt: Date.now(),
         status: status === 'ready' ? 'ready' : (status === 'loading' ? 'loading' : 'unloaded'),
-        isHealthy: vramStats?.isHealthy ?? (parsedStats.allocatedMB > 0 ? null : false),
+        isHealthy: vramStats?.isHealthy ?? (status === 'ready' ? true : null),
         healthCheckResult: vramStats?.healthCheckResult,
         deviceMemoryGB: liveMem.deviceMemoryGB,
         jsHeapUsedMB: liveMem.jsHeapUsedMB,
@@ -693,6 +764,17 @@ export default function App() {
       return null;
     }
   };
+
+  // Live VRAM stats polling while engine is active
+  useEffect(() => {
+    if (status === 'ready' && engineRef.current) {
+      fetchVramStats().catch(() => {});
+      const pollTimer = setInterval(() => {
+        fetchVramStats().catch(() => {});
+      }, 2500);
+      return () => clearInterval(pollTimer);
+    }
+  }, [status, selectedModel, aiSettings.contextWindowSize]);
 
   // Active test probe to verify that the loaded model actually responds and WebGPU compute shaders execute
   const runModelHealthCheck = async (): Promise<{ success: boolean; latencyMs: number; error?: string }> => {
@@ -1278,6 +1360,10 @@ export default function App() {
             isModelLoaded={status === 'ready'}
             onLoadModel={() => initEngine(selectedModel)}
             onDeleteMessage={handleDeleteMessage}
+            onExportLatex={() => {
+              const active = sessions.find(s => s.id === activeSessionId) || sessions[0];
+              if (active) downloadChatSessionAsLatex(active);
+            }}
           />
         </div>
       )}
